@@ -1,0 +1,14 @@
+Manifest-Version: 1.0
+Bundle-ManifestVersion: 2
+Bundle-Name: Variable Dumper
+Bundle-SymbolicName: variable-dumper;singleton:=true
+Bundle-Version: 0.0.1
+Fragment-Host: org.eclipse.jdt.debug.ui;bundle-version="3.4.0"
+Bundle-RequiredExecutionEnvironment: JavaSE-1.6
+Bundle-ClassPath: variable-dumper_0.0.1.jar
+Import-Package: org.eclipse.debug.ui,
+ org.eclipse.debug.ui.actions,
+ org.eclipse.jface.action,
+ org.eclipse.ui,
+ org.eclipse.core.runtime
+    

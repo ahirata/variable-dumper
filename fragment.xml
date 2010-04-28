@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<fragment>
+    <extension point="org.eclipse.ui.popupMenus">
+      <viewerContribution
+            targetID="org.eclipse.debug.ui.VariableView"
+            id="org.eclipse.debug.ui.variablesView.popupMenu">
+         <action
+               class="atarih.variabledumper.ui.actions.VariableDumperAction"
+               helpContextId="variable_dumper_action_context"
+               id="org.eclipse.debug.ui.debugview.toolbar.variableDumper"
+               label="Dump It!"
+               menubarPath="variableGroup"
+               tooltip="Dump It!">               
+         </action>
+      </viewerContribution>
+    </extension>
+</fragment>
+ 
