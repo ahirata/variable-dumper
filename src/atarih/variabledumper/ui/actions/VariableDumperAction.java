@@ -1,12 +1,16 @@
 package atarih.variabledumper.ui.actions;
 
+import java.util.Arrays;
 import java.util.List;
 
 import org.eclipse.debug.core.DebugException;
-import org.eclipse.jdi.internal.ObjectReferenceImpl;
+import org.eclipse.debug.core.model.IVariable;
+import org.eclipse.jdi.internal.TypeImpl;
 import org.eclipse.jdt.internal.debug.core.model.JDIFieldVariable;
 import org.eclipse.jdt.internal.debug.core.model.JDILocalVariable;
+import org.eclipse.jdt.internal.debug.core.model.JDINullValue;
 import org.eclipse.jdt.internal.debug.core.model.JDIObjectValue;
+import org.eclipse.jdt.internal.debug.core.model.JDIVariable;
 import org.eclipse.jface.action.IAction;
 import org.eclipse.jface.dialogs.MessageDialog;
 import org.eclipse.jface.viewers.ISelection;
@@ -17,9 +21,22 @@ import org.eclipse.ui.IViewPart;
 import org.eclipse.ui.IWorkbenchWindow;
 import org.eclipse.ui.internal.ViewPluginAction;
 
-import com.sun.jdi.Type;
-
+// TODO - refactor: methods like getJavaType and getValue do lots of things
+//        every time they're called and we are using them a bunch of times inside
+//        the same method. we should store them using local variables
+//		  after the first call.
 public class VariableDumperAction implements IViewActionDelegate {
+	
+	private static final List<String> TYPES = Arrays.asList(new String[] {
+			"java.lang.Boolean", 
+			"java.lang.Byte", 
+			"java.lang.Short", 
+			"java.lang.Integer", 
+			"java.lang.Long", 
+			"java.lang.Float", 
+			"java.lang.Double", 
+			"java.lang.String"
+	});
 	// just a test...
 	IWorkbenchWindow activeWindow = null;
 	
@@ -51,32 +68,80 @@ public class VariableDumperAction implements IViewActionDelegate {
 			MessageDialog.openInformation(shell, "Dump it!", "Field Variable");
 		} else if (elem instanceof JDILocalVariable) {
 			JDILocalVariable localVariable = (JDILocalVariable) elem;
-
-			// TODO - check how we can instantiate the the variable
-			// since we are in a different class loader, regular reflection calls 
-			// using localVariable.getJavaType().getName() directly don't apply.
-			// Maybe casting localVariable to ObjectReferenceImpl and grabbing the classLoader
-			// and to call Class.forName(). 
-			// Or maybe it has some other specific method for doing that.
-			// the method bellow virtualMachineImpl.allClasses does return the classes we want...
-			// TODO - check how Expressions Plugin does it...
+			
 			try {
-				List classes = ((ObjectReferenceImpl) ((JDIObjectValue)localVariable.getValue()).getUnderlyingObject()).virtualMachineImpl().allClasses();
-
-				for (Type clazz : (List<Type>) classes) {
-					if (clazz.name().contains("ClasseTeste")) {
-						System.out.println(clazz.getClass().getName());
-					}
-				}
-			} catch (DebugException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
+	            analyzeLocalVariable(localVariable);
+            } catch (DebugException e) {
+	            e.printStackTrace();
+            }
 			
 			MessageDialog.openInformation(shell, "Dump it!", "Local Variable");	
 		}
     }
 
+	private void analyzeLocalVariable(JDILocalVariable localVariable) throws DebugException {	    
+	    JDIObjectValue objectValue = (JDIObjectValue) localVariable.getValue();
+	    
+	    if (!TypeImpl.isPrimitiveSignature(objectValue.getSignature())) {
+	    	String variableName = printConstructor(localVariable);
+
+	    	for (IVariable variable : objectValue.getVariables()) {
+	    		if (variable instanceof JDIFieldVariable) {
+	    			analyzeFieldVariable(variableName, (JDIFieldVariable) variable);
+	    		}
+	    	}
+	    } else {
+			System.out.println("we dont dump primitive variables... doesnt make any sense... yet.");
+		}
+	    
+	    
+    }
+
+	private void analyzeFieldVariable(String variableName, JDIFieldVariable field) throws DebugException {
+		if (!TypeImpl.isPrimitiveSignature(field.getJavaType().getName()) && !isWrapper(field.getJavaType().getName()) && !field.getValue().getClass().equals(JDINullValue.class)) {
+			String fieldName = printConstructor(field);			
+			JDIObjectValue objectValue = (JDIObjectValue) field.getValue();
+			if (objectValue.getVariables() != null && objectValue.getValueString().length() > 0) {
+				System.out.println(variableName + "." + "set" + fieldName.substring(0, 1).toUpperCase() + fieldName.substring(1, fieldName.length()) + "(" + fieldName + ");");
+			}
+			for (IVariable variable : objectValue.getVariables()) {
+				
+				if (variable instanceof JDIFieldVariable) {
+					analyzeFieldVariable(fieldName, (JDIFieldVariable) variable);
+				}
+			}
+		} else if (isWrapper(field.getJavaType().getName())) {
+			printWrapper(variableName, field);
+			
+		}
+    }
+
+	private String printConstructor(JDIVariable fieldVariable) throws DebugException {
+		String fullname = fieldVariable.getJavaType().getName();
+		String variableName = fieldVariable.getName();
+		
+	    System.out.println(fullname + " " + variableName + " = new "+ fullname + "();");
+	    
+	    return variableName; 
+    }
+
+	private void printWrapper(String variableName, JDIFieldVariable field) throws DebugException {
+		JDIObjectValue objectValue = (JDIObjectValue) field.getValue();
+		if (field.getJavaType().getName().equals("java.lang.String")) {
+			System.out.println(variableName + "." + "set" + field.getName().substring(0, 1).toUpperCase().concat(field.getName().substring(1, field.getName().length())) + "(new " + field.getJavaType().getName() + "(" + field.getValue() + "));");
+		} else {
+			for (IVariable variable : objectValue.getVariables()) {
+				if (variable instanceof JDIFieldVariable && variable.getName().equals("value")) {
+					System.out.println(variableName + "." + "set" + field.getName().substring(0, 1).toUpperCase().concat(field.getName().substring(1, field.getName().length())) + "(new " + field.getJavaType().getName() + "(\"" + variable.getValue() + "\"));");		
+				}
+			}
+		}
+	}
+	
+	private boolean isWrapper(String type) {
+		return TYPES.contains(type); 
+	}
+	
 	@Override
     public void selectionChanged(IAction action, ISelection selection) {
 	    // TODO Auto-generated method stub
