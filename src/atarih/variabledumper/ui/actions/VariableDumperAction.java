@@ -6,6 +6,7 @@ import java.util.List;
 import org.eclipse.debug.core.DebugException;
 import org.eclipse.debug.core.model.IVariable;
 import org.eclipse.jdi.internal.TypeImpl;
+import org.eclipse.jdt.internal.debug.core.model.JDIArrayValue;
 import org.eclipse.jdt.internal.debug.core.model.JDIFieldVariable;
 import org.eclipse.jdt.internal.debug.core.model.JDILocalVariable;
 import org.eclipse.jdt.internal.debug.core.model.JDINullValue;
@@ -99,7 +100,7 @@ public class VariableDumperAction implements IViewActionDelegate {
     }
 
 	private void analyzeFieldVariable(String variableName, JDIFieldVariable field) throws DebugException {
-		if (!field.getValue().getClass().equals(JDIPrimitiveValue.class) && !isWrapper(field.getJavaType().getName()) && !field.getValue().getClass().equals(JDINullValue.class)) {
+		if (!field.getValue().getClass().equals(JDIArrayValue.class) && !field.getValue().getClass().equals(JDIPrimitiveValue.class) && !isWrapper(field.getJavaType().getName()) && !field.getValue().getClass().equals(JDINullValue.class)) {
 			String fieldName = printConstructor(field);			
 			JDIObjectValue objectValue = (JDIObjectValue) field.getValue();
 			if (objectValue.getVariables() != null && objectValue.getValueString().length() > 0) {
@@ -115,7 +116,9 @@ public class VariableDumperAction implements IViewActionDelegate {
 			printWrapper(variableName, field);
 		} else if (field.getValue().getClass().equals(JDIPrimitiveValue.class)) {
 			printPrimitive(variableName, field);
-		} 
+		} else if (field.getValue().getClass().equals(JDIArrayValue.class)) {
+			printArray(variableName, field);
+		}
     }
 
 	private String printConstructor(JDIVariable fieldVariable) throws DebugException {
@@ -127,7 +130,7 @@ public class VariableDumperAction implements IViewActionDelegate {
 	    return variableName; 
     }
 
-	private void printWrapper(String variableName, JDIFieldVariable field) throws DebugException {
+	private void printWrapper(String variableName, JDIVariable field) throws DebugException {
 		JDIObjectValue objectValue = (JDIObjectValue) field.getValue();
 		if (field.getJavaType().getName().equals("java.lang.String")) {
 			System.out.println(variableName + "." + "set" + field.getName().substring(0, 1).toUpperCase().concat(field.getName().substring(1, field.getName().length())) + "(new " + field.getJavaType().getName() + "(" + field.getValue() + "));");
@@ -140,10 +143,16 @@ public class VariableDumperAction implements IViewActionDelegate {
 		}
 	}
 	
-	private void printPrimitive(String variableName, JDIFieldVariable field) throws DebugException {
-		System.out.println(variableName + "." + "set" + field.getName().substring(0, 1).toUpperCase().concat(field.getName().substring(1, field.getName().length())) + "( (" + field.getJavaType().getName() +  ")"+ field.getValue() + ");");
+	private void printPrimitive(String variableName, JDIVariable field) throws DebugException {
+		System.out.println(variableName + "." + "set" + field.getName().substring(0, 1).toUpperCase().concat(field.getName().substring(1, field.getName().length())) + "((" + field.getJavaType().getName() +  ")"+ field.getValue() + ");");
 	}
-	
+	private void printArray(String variableName, JDIVariable field) throws DebugException {
+		System.out.println(variableName + "." + "set" + field.getName().substring(0, 1).toUpperCase().concat(field.getName().substring(1, field.getName().length())) + "(new " + field.getJavaType().getName().replaceAll("\\[\\]", "") + "[" + field.getValue().getVariables().length + "]);");
+		for (int i=0; i<field.getValue().getVariables().length; i++) {
+			System.out.println(variableName + "." + "get" + field.getName().substring(0, 1).toUpperCase().concat(field.getName().substring(1, field.getName().length())) + "()[" + i + "] = (" +field.getJavaType().getName().replaceAll("\\[\\]", "")+ ")" + field.getValue().getVariables()[i].getValue() + ";");		
+		}
+
+	}
 	private boolean isWrapper(String type) {
 		return TYPES.contains(type); 
 	}
