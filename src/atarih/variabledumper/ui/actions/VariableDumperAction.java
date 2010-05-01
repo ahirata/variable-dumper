@@ -10,6 +10,7 @@ import org.eclipse.jdt.internal.debug.core.model.JDIFieldVariable;
 import org.eclipse.jdt.internal.debug.core.model.JDILocalVariable;
 import org.eclipse.jdt.internal.debug.core.model.JDINullValue;
 import org.eclipse.jdt.internal.debug.core.model.JDIObjectValue;
+import org.eclipse.jdt.internal.debug.core.model.JDIPrimitiveValue;
 import org.eclipse.jdt.internal.debug.core.model.JDIVariable;
 import org.eclipse.jface.action.IAction;
 import org.eclipse.jface.dialogs.MessageDialog;
@@ -98,7 +99,7 @@ public class VariableDumperAction implements IViewActionDelegate {
     }
 
 	private void analyzeFieldVariable(String variableName, JDIFieldVariable field) throws DebugException {
-		if (!TypeImpl.isPrimitiveSignature(field.getJavaType().getName()) && !isWrapper(field.getJavaType().getName()) && !field.getValue().getClass().equals(JDINullValue.class)) {
+		if (!field.getValue().getClass().equals(JDIPrimitiveValue.class) && !isWrapper(field.getJavaType().getName()) && !field.getValue().getClass().equals(JDINullValue.class)) {
 			String fieldName = printConstructor(field);			
 			JDIObjectValue objectValue = (JDIObjectValue) field.getValue();
 			if (objectValue.getVariables() != null && objectValue.getValueString().length() > 0) {
@@ -112,8 +113,9 @@ public class VariableDumperAction implements IViewActionDelegate {
 			}
 		} else if (isWrapper(field.getJavaType().getName())) {
 			printWrapper(variableName, field);
-			
-		}
+		} else if (field.getValue().getClass().equals(JDIPrimitiveValue.class)) {
+			printPrimitive(variableName, field);
+		} 
     }
 
 	private String printConstructor(JDIVariable fieldVariable) throws DebugException {
@@ -136,6 +138,10 @@ public class VariableDumperAction implements IViewActionDelegate {
 				}
 			}
 		}
+	}
+	
+	private void printPrimitive(String variableName, JDIFieldVariable field) throws DebugException {
+		System.out.println(variableName + "." + "set" + field.getName().substring(0, 1).toUpperCase().concat(field.getName().substring(1, field.getName().length())) + "( (" + field.getJavaType().getName() +  ")"+ field.getValue() + ");");
 	}
 	
 	private boolean isWrapper(String type) {
