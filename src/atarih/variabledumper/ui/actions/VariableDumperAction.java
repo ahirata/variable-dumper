@@ -31,6 +31,8 @@ import org.eclipse.ui.IViewPart;
 import org.eclipse.ui.IWorkbenchWindow;
 import org.eclipse.ui.internal.ViewPluginAction;
 
+import atarih.variabledumper.util.Output;
+
 // TODO - refactor: methods like getJavaType and getValue do lots of things
 //        every time they're called and we are using them a bunch of times inside
 //        the same method. we should store them using local variables
@@ -126,18 +128,18 @@ public class VariableDumperAction implements IViewActionDelegate {
 		} else if (!value.getClass().equals(JDINullValue.class)) {
 			
 	    	String fieldName = field.getName();
-	    	
-			print(defaultConstructor(javaType).assignedTo(javaType, fieldName));
+	    	String tempVariableName = variableName+Output.capitalize(fieldName);
+			print(defaultConstructor(javaType).assignedTo(javaType, tempVariableName));
 			
 			JDIObjectValue objectValue = (JDIObjectValue) value;
 			
 			if (objectValue.getVariables() != null && objectValue.getValueString().length() > 0) {
-				print(value(fieldName).setTo(variableName, fieldName));
+				print(value(tempVariableName).setTo(variableName, fieldName));
 			}
 			for (IVariable variable : objectValue.getVariables()) {
 				
 				if (variable instanceof JDIFieldVariable) {
-					analyzeFieldVariable(fieldName, (JDIFieldVariable) variable);
+					analyzeFieldVariable(tempVariableName, (JDIFieldVariable) variable);
 				}
 			}
 		} 
