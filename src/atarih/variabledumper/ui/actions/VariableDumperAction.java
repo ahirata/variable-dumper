@@ -1,9 +1,16 @@
 package atarih.variabledumper.ui.actions;
 
+import static atarih.variabledumper.util.OutputUtils.arrayConstructor;
+import static atarih.variabledumper.util.OutputUtils.constructor;
+import static atarih.variabledumper.util.OutputUtils.defaultConstructor;
+import static atarih.variabledumper.util.OutputUtils.print;
+import static atarih.variabledumper.util.OutputUtils.value;
+
 import java.util.Arrays;
 import java.util.List;
 
 import org.eclipse.debug.core.DebugException;
+import org.eclipse.debug.core.model.IValue;
 import org.eclipse.debug.core.model.IVariable;
 import org.eclipse.jdi.internal.TypeImpl;
 import org.eclipse.jdt.internal.debug.core.model.JDIArrayValue;
@@ -65,8 +72,14 @@ public class VariableDumperAction implements IViewActionDelegate {
 		Object elem = treeSelection.getFirstElement();
 		
 		if (elem instanceof JDIFieldVariable) {
-			JDIFieldVariable localVariable = (JDIFieldVariable) elem;
+			JDIFieldVariable fieldVariable = (JDIFieldVariable) elem;
 			
+			try {
+	            analyzeFieldVariable(fieldVariable.getName(), fieldVariable);
+            } catch (DebugException e) {
+	            // TODO Auto-generated catch block
+	            e.printStackTrace();
+            }
 			MessageDialog.openInformation(shell, "Dump it!", "Field Variable");
 		} else if (elem instanceof JDILocalVariable) {
 			JDILocalVariable localVariable = (JDILocalVariable) elem;
@@ -85,7 +98,10 @@ public class VariableDumperAction implements IViewActionDelegate {
 	    JDIObjectValue objectValue = (JDIObjectValue) localVariable.getValue();
 	    
 	    if (!TypeImpl.isPrimitiveSignature(objectValue.getSignature())) {
-	    	String variableName = printConstructor(localVariable);
+	    	String variableName = localVariable.getName();
+	    	String javaType = localVariable.getJavaType().getName();
+	    	
+	    	print(defaultConstructor(javaType).assignedTo(javaType, variableName));
 
 	    	for (IVariable variable : objectValue.getVariables()) {
 	    		if (variable instanceof JDIFieldVariable) {
@@ -95,16 +111,27 @@ public class VariableDumperAction implements IViewActionDelegate {
 	    } else {
 			System.out.println("we dont dump primitive variables... doesnt make any sense... yet.");
 		}
-	    
-	    
     }
 
 	private void analyzeFieldVariable(String variableName, JDIFieldVariable field) throws DebugException {
-		if (!field.getValue().getClass().equals(JDIArrayValue.class) && !field.getValue().getClass().equals(JDIPrimitiveValue.class) && !isWrapper(field.getJavaType().getName()) && !field.getValue().getClass().equals(JDINullValue.class)) {
-			String fieldName = printConstructor(field);			
-			JDIObjectValue objectValue = (JDIObjectValue) field.getValue();
+		IValue value = field.getValue();
+		String javaType = field.getJavaType().getName();
+		if (isWrapper(javaType)) {
+			handleWrapper(variableName, field);
+		} else if (value.getClass().equals(JDIPrimitiveValue.class)) {
+			handlePrimitive(variableName, field);
+		} else if (value.getClass().equals(JDIArrayValue.class)) {
+			handlePrimitiveArray(variableName, field);
+		} else if (!value.getClass().equals(JDINullValue.class)) {
+			
+	    	String fieldName = field.getName();
+	    	
+			print(defaultConstructor(javaType).assignedTo(javaType, fieldName));
+			
+			JDIObjectValue objectValue = (JDIObjectValue) value;
+			
 			if (objectValue.getVariables() != null && objectValue.getValueString().length() > 0) {
-				System.out.println(variableName + "." + "set" + fieldName.substring(0, 1).toUpperCase() + fieldName.substring(1, fieldName.length()) + "(" + fieldName + ");");
+				print(value(fieldName).setTo(variableName, fieldName));
 			}
 			for (IVariable variable : objectValue.getVariables()) {
 				
@@ -112,45 +139,47 @@ public class VariableDumperAction implements IViewActionDelegate {
 					analyzeFieldVariable(fieldName, (JDIFieldVariable) variable);
 				}
 			}
-		} else if (isWrapper(field.getJavaType().getName())) {
-			printWrapper(variableName, field);
-		} else if (field.getValue().getClass().equals(JDIPrimitiveValue.class)) {
-			printPrimitive(variableName, field);
-		} else if (field.getValue().getClass().equals(JDIArrayValue.class)) {
-			printArray(variableName, field);
-		}
+		} 
     }
 
-	private String printConstructor(JDIVariable fieldVariable) throws DebugException {
-		String fullname = fieldVariable.getJavaType().getName();
-		String variableName = fieldVariable.getName();
+	private void handleWrapper(String variableName, JDIVariable field) throws DebugException {
+		String fieldName = field.getName();
+		String javaType = field.getJavaType().getName();
 		
-	    System.out.println(fullname + " " + variableName + " = new "+ fullname + "();");
-	    
-	    return variableName; 
-    }
-
-	private void printWrapper(String variableName, JDIVariable field) throws DebugException {
 		JDIObjectValue objectValue = (JDIObjectValue) field.getValue();
-		if (field.getJavaType().getName().equals("java.lang.String")) {
-			System.out.println(variableName + "." + "set" + field.getName().substring(0, 1).toUpperCase().concat(field.getName().substring(1, field.getName().length())) + "(new " + field.getJavaType().getName() + "(" + field.getValue() + "));");
+		if (javaType.equals("java.lang.String")) {
+			String value = field.getValue().toString();
+			print(constructor(javaType, value).setTo(variableName, fieldName));
 		} else {
 			for (IVariable variable : objectValue.getVariables()) {
 				if (variable instanceof JDIFieldVariable && variable.getName().equals("value")) {
-					System.out.println(variableName + "." + "set" + field.getName().substring(0, 1).toUpperCase().concat(field.getName().substring(1, field.getName().length())) + "(new " + field.getJavaType().getName() + "(\"" + variable.getValue() + "\"));");		
+					String value = "\"" + variable.getValue() + "\"";
+					print(constructor(javaType, value).setTo(variableName, fieldName));	
 				}
 			}
 		}
 	}
 	
-	private void printPrimitive(String variableName, JDIVariable field) throws DebugException {
-		System.out.println(variableName + "." + "set" + field.getName().substring(0, 1).toUpperCase().concat(field.getName().substring(1, field.getName().length())) + "((" + field.getJavaType().getName() +  ")"+ field.getValue() + ");");
+	private void handlePrimitive(String variableName, JDIVariable field) throws DebugException {
+		String value = "(" + field.getJavaType().getName() +  ")"+ field.getValue();
+		String fieldName = field.getName();
+		print(value(value).setTo(variableName, fieldName));
 	}
-	private void printArray(String variableName, JDIVariable field) throws DebugException {
-		System.out.println(variableName + "." + "set" + field.getName().substring(0, 1).toUpperCase().concat(field.getName().substring(1, field.getName().length())) + "(new " + field.getJavaType().getName().replaceAll("\\[\\]", "") + "[" + field.getValue().getVariables().length + "]);");
-		for (int i=0; i<field.getValue().getVariables().length; i++) {
-			System.out.println(variableName + "." + "get" + field.getName().substring(0, 1).toUpperCase().concat(field.getName().substring(1, field.getName().length())) + "()[" + i + "] = (" +field.getJavaType().getName().replaceAll("\\[\\]", "")+ ")" + field.getValue().getVariables()[i].getValue() + ";");		
+	
+	private void handlePrimitiveArray(String variableName, JDIVariable field) throws DebugException {
+		int arrayLength = field.getValue().getVariables().length;
+		String javaType = field.getJavaType().getName();
+		String arrayType = javaType.replaceAll("\\[\\]", "");
+		String fieldName = field.getName();
+		
+		print(arrayConstructor(arrayType, arrayLength).assignedTo(javaType, fieldName));
+
+		for (int i=0; i<arrayLength; i++) {
+			String value = "(" + arrayType + ")" + field.getValue().getVariables()[i].getValue();
+			print(value(value).assignedTo(fieldName + "[" +  i + "]"));
 		}
+		
+		print(value(fieldName).setTo(variableName, fieldName));
 
 	}
 	private boolean isWrapper(String type) {
@@ -161,5 +190,4 @@ public class VariableDumperAction implements IViewActionDelegate {
     public void selectionChanged(IAction action, ISelection selection) {
 	    // TODO Auto-generated method stub
     }
-	
 }
