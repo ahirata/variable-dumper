@@ -1,10 +1,9 @@
 package atarih.variabledumper.util;
 
-import org.eclipse.debug.core.DebugException;
 
 public class OutputUtils {
 
-	public static Output defaultConstructor(String javaType) throws DebugException {
+	public static Output defaultConstructor(String javaType) {
 	    return constructor(javaType, "");
 	}
 	
