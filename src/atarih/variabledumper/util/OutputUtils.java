@@ -23,6 +23,14 @@ public class OutputUtils {
 		return output;
 	}
 
+	public static Output arrayIndex(String variable, String fieldName, int index) {
+		Output output = new Output();
+		
+		output.setValue(variable + ".get" + Output.capitalize(fieldName) + "()[" + index + "]");
+		
+		return output;
+	}
+	
 	public static Output value(String value) {
 		Output output = new Output();
 		

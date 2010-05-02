@@ -1,6 +1,7 @@
 package atarih.variabledumper.ui.actions;
 
 import static atarih.variabledumper.util.OutputUtils.arrayConstructor;
+import static atarih.variabledumper.util.OutputUtils.arrayIndex;
 import static atarih.variabledumper.util.OutputUtils.constructor;
 import static atarih.variabledumper.util.OutputUtils.defaultConstructor;
 import static atarih.variabledumper.util.OutputUtils.print;
@@ -113,7 +114,7 @@ public class VariableDumperAction implements IViewActionDelegate {
 		}
     }
 
-	private void analyzeFieldVariable(String variableName, JDIFieldVariable field) throws DebugException {
+	private void analyzeFieldVariable(String variableName, JDIVariable field) throws DebugException {
 		IValue value = field.getValue();
 		String javaType = field.getJavaType().getName();
 		if (isWrapper(javaType)) {
@@ -152,8 +153,11 @@ public class VariableDumperAction implements IViewActionDelegate {
 			print(constructor(javaType, value).setTo(variableName, fieldName));
 		} else {
 			String value = getWrapperValue(objectValue);
-			print(constructor(javaType, value).setTo(variableName, fieldName));
-			
+			if (value == null) {
+				print(value("null").setTo(variableName, fieldName));
+			} else {
+				print(constructor(javaType, value).setTo(variableName, fieldName));
+			}
 		}
 	}
 	
@@ -169,7 +173,7 @@ public class VariableDumperAction implements IViewActionDelegate {
 		
 	}
 	private void handlePrimitive(String variableName, JDIVariable field) throws DebugException {
-		String value = "(" + field.getJavaType().getName() +  ")"+ field.getValue();
+		String value = "(" + field.getJavaType().getName() +  ")"+ field.getValue().toString();
 		String fieldName = field.getName();
 		print(value(value).setTo(variableName, fieldName));
 	}
@@ -181,19 +185,26 @@ public class VariableDumperAction implements IViewActionDelegate {
 		String arrayType = javaType.replaceAll("\\[\\]", "");
 		String fieldName = field.getName();
 		
-		print(arrayConstructor(arrayType, variables.length).assignedTo(javaType, fieldName));
+		print(arrayConstructor(arrayType, variables.length).setTo(variableName, fieldName));
 
 		for (int i=0; i<variables.length; i++) {
 			if (isWrapper(arrayType)) {
-				print(constructor(arrayType, getWrapperValue(variables[i].getValue())).assignedTo(fieldName+ "[" +  i + "]"));
-			} else {
+				if (arrayType.equals("java.lang.String")) {
+					String value = "(" + arrayType + ")" + variables[i].getValue();
+					print(value(value).assignedTo(arrayIndex(variableName, fieldName, i)));
+				} else {
+					print(constructor(arrayType, getWrapperValue(variables[i].getValue())).assignedTo(arrayIndex(variableName, fieldName, i)));			
+				}
+				
+			} else {				
 				String value = "(" + arrayType + ")" + variables[i].getValue();
-				print(value(value).assignedTo(fieldName + "[" +  i + "]"));
+				print(value(value).assignedTo(arrayIndex(variableName, fieldName, i)));
 			}
 		}
 		
-		print(value(fieldName).setTo(variableName, fieldName));
+//		print(value(fieldName).setTo(variableName, fieldName));
 	}
+	
 	private boolean isWrapper(String type) {
 		return TYPES.contains(type); 
 	}

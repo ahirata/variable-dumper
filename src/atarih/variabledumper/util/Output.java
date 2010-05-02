@@ -14,6 +14,10 @@ public class Output {
 		return assignedTo("", variableName);
 	}
 	
+	public Output assignedTo(Output output) {
+		return assignedTo(output.value);
+	}
+	
 	public Output setTo(String variableName, String fieldName) {
 		this.value = variableName + ".set" + capitalize(fieldName) + "(" + value + ");";
 		
@@ -23,8 +27,8 @@ public class Output {
 	protected void setValue(String value) {
     	this.value = value;
     }
-	
-	private static String capitalize(String fieldName) {
+
+	public static String capitalize(String fieldName) {
 		return fieldName.substring(0, 1).toUpperCase().concat(fieldName.substring(1, fieldName.length()));
 	}
 	
