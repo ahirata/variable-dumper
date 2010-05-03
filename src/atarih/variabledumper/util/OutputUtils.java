@@ -18,7 +18,7 @@ public class OutputUtils {
 	public static Output arrayConstructor(String javaType, int size) {
 		Output output = new Output();
 		
-		output.setValue("new "+ javaType + "[" + size + "]");
+		output.setValue("new "+ javaType.replaceFirst("\\[\\]", "[" + size + "]"));
 		
 		return output;
 	}
@@ -26,7 +26,11 @@ public class OutputUtils {
 	public static Output arrayIndex(String variable, String fieldName, int index) {
 		Output output = new Output();
 		
-		output.setValue(variable + ".get" + Output.capitalize(fieldName) + "()[" + index + "]");
+		if (variable.equals("")) {
+			output.setValue(fieldName+ "[" + index + "]");
+		} else {
+			output.setValue(variable + ".get" + Output.capitalize(fieldName) + "()[" + index + "]");
+		}
 		
 		return output;
 	}

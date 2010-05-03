@@ -14,6 +14,7 @@ import org.eclipse.debug.core.DebugException;
 import org.eclipse.debug.core.model.IValue;
 import org.eclipse.debug.core.model.IVariable;
 import org.eclipse.jdi.internal.TypeImpl;
+import org.eclipse.jdt.internal.debug.core.model.JDIArrayEntryVariable;
 import org.eclipse.jdt.internal.debug.core.model.JDIArrayValue;
 import org.eclipse.jdt.internal.debug.core.model.JDIFieldVariable;
 import org.eclipse.jdt.internal.debug.core.model.JDILocalVariable;
@@ -47,7 +48,6 @@ public class VariableDumperAction implements IViewActionDelegate {
 			"java.lang.Long", 
 			"java.lang.Float", 
 			"java.lang.Double", 
-			"java.lang.String"
 	});
 	// just a test...
 	IWorkbenchWindow activeWindow = null;
@@ -74,137 +74,131 @@ public class VariableDumperAction implements IViewActionDelegate {
 		
 		Object elem = treeSelection.getFirstElement();
 		
-		if (elem instanceof JDIFieldVariable) {
-			JDIFieldVariable fieldVariable = (JDIFieldVariable) elem;
+		if (elem instanceof JDIVariable) {
+			JDIVariable fieldVariable = (JDIVariable) elem;
 			
 			try {
-	            analyzeFieldVariable(fieldVariable.getName(), fieldVariable);
+	            analyzeVariable("", fieldVariable);
             } catch (DebugException e) {
 	            // TODO Auto-generated catch block
 	            e.printStackTrace();
             }
-			MessageDialog.openInformation(shell, "Dump it!", "Field Variable");
-		} else if (elem instanceof JDILocalVariable) {
-			JDILocalVariable localVariable = (JDILocalVariable) elem;
-			
-			try {
-	            analyzeLocalVariable(localVariable);
-            } catch (DebugException e) {
-	            e.printStackTrace();
-            }
-			
-			MessageDialog.openInformation(shell, "Dump it!", "Local Variable");	
+			MessageDialog.openInformation(shell, "Dump it!", "JDIVariable");
 		}
     }
 
-	private void analyzeLocalVariable(JDILocalVariable localVariable) throws DebugException {	    
-	    JDIObjectValue objectValue = (JDIObjectValue) localVariable.getValue();
-	    
-	    if (!TypeImpl.isPrimitiveSignature(objectValue.getSignature())) {
-	    	String variableName = localVariable.getName();
-	    	String javaType = localVariable.getJavaType().getName();
-	    	
-	    	print(defaultConstructor(javaType).assignedTo(javaType, variableName));
-
-	    	for (IVariable variable : objectValue.getVariables()) {
-	    		if (variable instanceof JDIFieldVariable) {
-	    			analyzeFieldVariable(variableName, (JDIFieldVariable) variable);
-	    		}
-	    	}
-	    } else {
-			System.out.println("we dont dump primitive variables... doesnt make any sense... yet.");
-		}
-    }
-
-	private void analyzeFieldVariable(String variableName, JDIVariable field) throws DebugException {
+	private void analyzeVariable(String variableName, JDIVariable field) throws DebugException {
 		IValue value = field.getValue();
 		String javaType = field.getJavaType().getName();
-		if (isWrapper(javaType)) {
-			handleWrapper(variableName, field);
-		} else if (value.getClass().equals(JDIPrimitiveValue.class)) {
-			handlePrimitive(variableName, field);
-		} else if (value.getClass().equals(JDIArrayValue.class)) {
-			handleArray(variableName, field);
-		} else if (!value.getClass().equals(JDINullValue.class)) {
+		String fieldName = field.getName();
+		
+		handleTypes(variableName, javaType, fieldName, value); 
+    }
+
+	private void handleTypes(String variableName, String javaType, String fieldName, IValue value) throws DebugException {
+	    if (value.getClass().equals(JDINullValue.class)) {
+	    	handleNullValue(variableName, fieldName, javaType);
 			
-	    	String fieldName = field.getName();
-	    	String tempVariableName = variableName+Output.capitalize(fieldName);
+		} else if (isWrapper(javaType)) {
+			handleWrapper(variableName, fieldName, javaType, value);
+			
+		} else if (value.getClass().equals(JDIPrimitiveValue.class) || javaType.equals("java.lang.String")) {
+			handlePrimitive(variableName, fieldName, javaType, value);
+			
+		} else if (value.getClass().equals(JDIArrayValue.class)) {
+			handleArray(variableName, fieldName, javaType, value);
+			
+		} else if (value.getClass().equals(JDIArrayEntryVariable.class)) {
+			
+		} else {
+			String tempVariableName = fieldName;
+			if (!variableName.equals("")) {
+				tempVariableName = variableName+Output.capitalize(fieldName);
+			}
 			print(defaultConstructor(javaType).assignedTo(javaType, tempVariableName));
 			
 			JDIObjectValue objectValue = (JDIObjectValue) value;
 			
-			if (objectValue.getVariables() != null && objectValue.getValueString().length() > 0) {
+			IVariable[] variables = objectValue.getVariables();
+			
+			if (variables != null && objectValue.getValueString().length() > 0 && !variableName.equals("")) {
 				print(value(tempVariableName).setTo(variableName, fieldName));
 			}
-			for (IVariable variable : objectValue.getVariables()) {
+			for (IVariable variable : variables) {
 				
-				if (variable instanceof JDIFieldVariable) {
-					analyzeFieldVariable(tempVariableName, (JDIFieldVariable) variable);
+				if (variable instanceof JDIVariable) {
+					analyzeVariable(tempVariableName, (JDIVariable) variable);
 				}
 			}
-		} 
+		}
     }
 
-	private void handleWrapper(String variableName, JDIVariable field) throws DebugException {
-		String fieldName = field.getName();
-		String javaType = field.getJavaType().getName();
+	private void handleNullValue(String variableName, String fieldName, String javaType) {
+	    if (variableName.equals("")) {
+	    	print(value("null").assignedTo(javaType, fieldName));
+	    } else if (fieldName.equals("")) {
+	    	print(value("null").assignedTo(variableName));
+	    } else {
+	    	print(value("null").setTo(variableName, fieldName));
+	    }
+    }
+
+	private void handleWrapper(String variableName, String fieldName, String javaType, IValue fieldValue) throws DebugException {
+		String value = getWrapperValue(fieldValue);
 		
-		JDIObjectValue objectValue = (JDIObjectValue) field.getValue();
-		if (javaType.equals("java.lang.String")) {
-			String value = field.getValue().toString();
-			print(constructor(javaType, value).setTo(variableName, fieldName));
+		if (variableName.equals("")) {
+			print(constructor(javaType, value).assignedTo(javaType, fieldName));
+		} else if (fieldName.equals("")){
+			print(constructor(javaType, value).assignedTo(variableName));
 		} else {
-			String value = getWrapperValue(objectValue);
-			if (value == null) {
-				print(value("null").setTo(variableName, fieldName));
-			} else {
-				print(constructor(javaType, value).setTo(variableName, fieldName));
-			}
+			print(constructor(javaType, value).setTo(variableName, fieldName));
 		}
 	}
 	
 	private String getWrapperValue(IValue objectValue) throws DebugException {
 		String value = null;
 		for (IVariable variable : objectValue.getVariables()) {
-			if (variable instanceof JDIFieldVariable && variable.getName().equals("value")) {
+			if (variable instanceof JDIVariable && variable.getName().equals("value")) {
 				value = "\"" + variable.getValue() + "\"";
 				break;	
 			}
 		}
 		return value;
-		
 	}
-	private void handlePrimitive(String variableName, JDIVariable field) throws DebugException {
-		String value = "(" + field.getJavaType().getName() +  ")"+ field.getValue().toString();
-		String fieldName = field.getName();
-		print(value(value).setTo(variableName, fieldName));
+
+	private void handlePrimitive(String variableName, String fieldName, String javaType, IValue fieldValue) throws DebugException {
+		String value = "(" + javaType +  ")"+ fieldValue;
+		if (variableName.equals("")) {
+			print(value(value).assignedTo(javaType, fieldName));
+		} else if (fieldName.equals("")) {
+			print(value(value).assignedTo(variableName));
+		} else {
+			print(value(value).setTo(variableName, fieldName));
+		}
 	}
 	
-	private void handleArray(String variableName, JDIVariable field) throws DebugException {
-		IVariable[] variables = field.getValue().getVariables();
+	private void handleArray(String variableName, String fieldName, String javaType, IValue fieldValue) throws DebugException {
+		IVariable[] variables = fieldValue.getVariables();
+
+		String arrayType = javaType.replaceFirst("\\[\\]", "");
 		
-		String javaType = field.getJavaType().getName();
-		String arrayType = javaType.replaceAll("\\[\\]", "");
-		String fieldName = field.getName();
-		
-		print(arrayConstructor(arrayType, variables.length).setTo(variableName, fieldName));
+		if (variableName.equals("")) {
+			print(arrayConstructor(javaType, variables.length).assignedTo(javaType, fieldName));
+		} else if (fieldName.equals("")) {
+			print(arrayConstructor(javaType, variables.length).assignedTo(variableName));
+		} else {
+			print(arrayConstructor(javaType, variables.length).setTo(variableName, fieldName));
+		}
 
 		for (int i=0; i<variables.length; i++) {
-			if (isWrapper(arrayType)) {
-				if (arrayType.equals("java.lang.String")) {
-					String value = "(" + arrayType + ")" + variables[i].getValue();
-					print(value(value).assignedTo(arrayIndex(variableName, fieldName, i)));
-				} else {
-					print(constructor(arrayType, getWrapperValue(variables[i].getValue())).assignedTo(arrayIndex(variableName, fieldName, i)));			
-				}
-				
-			} else {				
-				String value = "(" + arrayType + ")" + variables[i].getValue();
-				print(value(value).assignedTo(arrayIndex(variableName, fieldName, i)));
+			if (variableName.equals("")) {
+				handleTypes(arrayIndex("", fieldName, i).toString(), arrayType, "", variables[i].getValue());
+			} else if (fieldName.equals("")) {
+				handleTypes(arrayIndex("", variableName, i).toString(), arrayType, "", variables[i].getValue());
+			} else {
+				handleTypes(arrayIndex(variableName, fieldName, i).toString(), arrayType, "", variables[i].getValue());
 			}
 		}
-		
-//		print(value(fieldName).setTo(variableName, fieldName));
 	}
 	
 	private boolean isWrapper(String type) {
