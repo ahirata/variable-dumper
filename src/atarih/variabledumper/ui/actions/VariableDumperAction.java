@@ -78,12 +78,11 @@ public class VariableDumperAction implements IViewActionDelegate {
 			JDIVariable fieldVariable = (JDIVariable) elem;
 			
 			try {
-	            analyzeVariable("", fieldVariable);
+				analyzeVariable("", fieldVariable);	            
             } catch (DebugException e) {
 	            // TODO Auto-generated catch block
 	            e.printStackTrace();
             }
-			MessageDialog.openInformation(shell, "Dump it!", "JDIVariable");
 		}
     }
 
@@ -92,10 +91,10 @@ public class VariableDumperAction implements IViewActionDelegate {
 		String javaType = field.getJavaType().getName();
 		String fieldName = field.getName();
 		
-		handleTypes(variableName, javaType, fieldName, value); 
+		handleTypes(variableName, fieldName, javaType, value); 
     }
 
-	private void handleTypes(String variableName, String javaType, String fieldName, IValue value) throws DebugException {
+	private void handleTypes(String variableName, String fieldName, String javaType, IValue value) throws DebugException {
 	    if (value.getClass().equals(JDINullValue.class)) {
 	    	handleNullValue(variableName, fieldName, javaType);
 			
@@ -108,29 +107,39 @@ public class VariableDumperAction implements IViewActionDelegate {
 		} else if (value.getClass().equals(JDIArrayValue.class)) {
 			handleArray(variableName, fieldName, javaType, value);
 			
-		} else if (value.getClass().equals(JDIArrayEntryVariable.class)) {
-			
 		} else {
-			String tempVariableName = fieldName;
-			if (!variableName.equals("")) {
-				tempVariableName = variableName+Output.capitalize(fieldName);
-			}
-			print(defaultConstructor(javaType).assignedTo(javaType, tempVariableName));
-			
-			JDIObjectValue objectValue = (JDIObjectValue) value;
-			
-			IVariable[] variables = objectValue.getVariables();
-			
-			if (variables != null && objectValue.getValueString().length() > 0 && !variableName.equals("")) {
-				print(value(tempVariableName).setTo(variableName, fieldName));
-			}
-			for (IVariable variable : variables) {
-				
-				if (variable instanceof JDIVariable) {
-					analyzeVariable(tempVariableName, (JDIVariable) variable);
-				}
-			}
+			handleObject(variableName, fieldName, javaType, value);
 		}
+    }
+
+	private void handleObject(String variableName, String fieldName, String javaType, IValue value) throws DebugException {
+	    String tempVariableName = fieldName;
+	    if (variableName.equals("")) {
+	    	tempVariableName = fieldName;
+	    	print(defaultConstructor(javaType).assignedTo(javaType, tempVariableName));
+	    } else if(fieldName.equals("")) {
+	    	tempVariableName = variableName;
+	    	print(defaultConstructor(javaType).assignedTo(tempVariableName));
+	    } else {
+	    	tempVariableName = variableName+Output.capitalize(fieldName);
+	    	print(defaultConstructor(javaType).assignedTo(javaType, tempVariableName));
+	    }
+	     
+	    JDIObjectValue objectValue = (JDIObjectValue) value;
+	    
+	    IVariable[] variables = objectValue.getVariables();
+	    
+	    if (variables != null && objectValue.getValueString().length() > 0) {
+	    	if (!fieldName.equals("") && !variableName.equals("")) {
+	    		print(value(tempVariableName).setTo(variableName, fieldName));
+	    	}
+	    }
+	    for (IVariable variable : variables) {
+	    	
+	    	if (variable instanceof JDIVariable) {
+	    		analyzeVariable(tempVariableName, (JDIVariable) variable);
+	    	}
+	    }
     }
 
 	private void handleNullValue(String variableName, String fieldName, String javaType) {
@@ -192,11 +201,11 @@ public class VariableDumperAction implements IViewActionDelegate {
 
 		for (int i=0; i<variables.length; i++) {
 			if (variableName.equals("")) {
-				handleTypes(arrayIndex("", fieldName, i).toString(), arrayType, "", variables[i].getValue());
+				handleTypes(arrayIndex("", fieldName, i).toString(), "", arrayType, variables[i].getValue());
 			} else if (fieldName.equals("")) {
-				handleTypes(arrayIndex("", variableName, i).toString(), arrayType, "", variables[i].getValue());
+				handleTypes(arrayIndex("", variableName, i).toString(), "", arrayType, variables[i].getValue());
 			} else {
-				handleTypes(arrayIndex(variableName, fieldName, i).toString(), arrayType, "", variables[i].getValue());
+				handleTypes(arrayIndex(variableName, fieldName, i).toString(), "", arrayType, variables[i].getValue());
 			}
 		}
 	}
