@@ -4,26 +4,25 @@ import static atarih.variabledumper.util.OutputUtils.arrayConstructor;
 import static atarih.variabledumper.util.OutputUtils.arrayIndex;
 import static atarih.variabledumper.util.OutputUtils.constructor;
 import static atarih.variabledumper.util.OutputUtils.defaultConstructor;
+import static atarih.variabledumper.util.OutputUtils.genericConstructor;
 import static atarih.variabledumper.util.OutputUtils.print;
 import static atarih.variabledumper.util.OutputUtils.value;
 
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.List;
+import java.util.Map;
+import java.util.TreeMap;
 
 import org.eclipse.debug.core.DebugException;
 import org.eclipse.debug.core.model.IValue;
 import org.eclipse.debug.core.model.IVariable;
-import org.eclipse.jdi.internal.TypeImpl;
-import org.eclipse.jdt.internal.debug.core.model.JDIArrayEntryVariable;
 import org.eclipse.jdt.internal.debug.core.model.JDIArrayValue;
-import org.eclipse.jdt.internal.debug.core.model.JDIFieldVariable;
-import org.eclipse.jdt.internal.debug.core.model.JDILocalVariable;
 import org.eclipse.jdt.internal.debug.core.model.JDINullValue;
 import org.eclipse.jdt.internal.debug.core.model.JDIObjectValue;
 import org.eclipse.jdt.internal.debug.core.model.JDIPrimitiveValue;
 import org.eclipse.jdt.internal.debug.core.model.JDIVariable;
 import org.eclipse.jface.action.IAction;
-import org.eclipse.jface.dialogs.MessageDialog;
 import org.eclipse.jface.viewers.ISelection;
 import org.eclipse.jface.viewers.TreeSelection;
 import org.eclipse.swt.widgets.Shell;
@@ -49,6 +48,15 @@ public class VariableDumperAction implements IViewActionDelegate {
 			"java.lang.Float", 
 			"java.lang.Double", 
 	});
+
+	private static final Map<String, String> COLLECTION_TYPES = new TreeMap<String, String>();
+	
+	static {
+		COLLECTION_TYPES.put("java.util.List", "java.util.ArrayList");
+		COLLECTION_TYPES.put("java.util.Set", "java.util.HashSet");
+		COLLECTION_TYPES.put("java.util.Collection", "java.util.ArrayList");
+	}
+	
 	// just a test...
 	IWorkbenchWindow activeWindow = null;
 	
@@ -64,14 +72,13 @@ public class VariableDumperAction implements IViewActionDelegate {
 	}
 	
 	@Override
+	@SuppressWarnings("restriction")
     public void run(IAction action) {
 		// just a test...
 		Shell shell = activeWindow.getShell();
-		
 		ViewPluginAction viewAction = (ViewPluginAction) action;
 
-		TreeSelection treeSelection = (TreeSelection)viewAction.getSelection();
-		
+		TreeSelection treeSelection = (TreeSelection) viewAction.getSelection();
 		Object elem = treeSelection.getFirstElement();
 		
 		if (elem instanceof JDIVariable) {
@@ -80,13 +87,14 @@ public class VariableDumperAction implements IViewActionDelegate {
 			try {
 				analyzeVariable("", fieldVariable);	            
             } catch (DebugException e) {
-	            // TODO Auto-generated catch block
 	            e.printStackTrace();
-            }
+            } catch (ClassNotFoundException e) {
+				e.printStackTrace();
+			}
 		}
     }
 
-	private void analyzeVariable(String variableName, JDIVariable field) throws DebugException {
+	private void analyzeVariable(String variableName, JDIVariable field) throws DebugException, ClassNotFoundException {
 		IValue value = field.getValue();
 		String javaType = field.getJavaType().getName();
 		String fieldName = field.getName();
@@ -94,7 +102,7 @@ public class VariableDumperAction implements IViewActionDelegate {
 		handleTypes(variableName, fieldName, javaType, value); 
     }
 
-	private void handleTypes(String variableName, String fieldName, String javaType, IValue value) throws DebugException {
+	private void handleTypes(String variableName, String fieldName, String javaType, IValue value) throws DebugException, ClassNotFoundException {
 	    if (value.getClass().equals(JDINullValue.class)) {
 	    	handleNullValue(variableName, fieldName, javaType);
 			
@@ -107,12 +115,15 @@ public class VariableDumperAction implements IViewActionDelegate {
 		} else if (value.getClass().equals(JDIArrayValue.class)) {
 			handleArray(variableName, fieldName, javaType, value);
 			
+		} else if (value.getClass().equals(JDIObjectValue.class) && Collection.class.isAssignableFrom(Class.forName(javaType))) {
+			handleList(variableName, fieldName, javaType, value);
+			
 		} else {
 			handleObject(variableName, fieldName, javaType, value);
 		}
     }
 
-	private void handleObject(String variableName, String fieldName, String javaType, IValue value) throws DebugException {
+	private void handleObject(String variableName, String fieldName, String javaType, IValue value) throws DebugException, ClassNotFoundException {
 	    String tempVariableName = fieldName;
 	    if (variableName.equals("")) {
 	    	tempVariableName = fieldName;
@@ -186,7 +197,7 @@ public class VariableDumperAction implements IViewActionDelegate {
 		}
 	}
 	
-	private void handleArray(String variableName, String fieldName, String javaType, IValue fieldValue) throws DebugException {
+	private void handleArray(String variableName, String fieldName, String javaType, IValue fieldValue) throws DebugException, ClassNotFoundException {
 		IVariable[] variables = fieldValue.getVariables();
 
 		String arrayType = javaType.replaceFirst("\\[\\]", "");
@@ -206,6 +217,28 @@ public class VariableDumperAction implements IViewActionDelegate {
 				handleTypes(arrayIndex("", variableName, i).toString(), "", arrayType, variables[i].getValue());
 			} else {
 				handleTypes(arrayIndex(variableName, fieldName, i).toString(), "", arrayType, variables[i].getValue());
+			}
+		}
+	}
+
+	private void handleList(String variableName, String fieldName, String javaType, IValue fieldValue) throws DebugException, ClassNotFoundException {
+		IVariable[] variables = fieldValue.getVariables();
+
+		for (IVariable iVariable : variables) {
+			for (int i = 0; i < iVariable.getValue().getVariables().length; i++) {
+				IValue itemValue = iVariable.getValue().getVariables()[i].getValue();
+				
+				if (!itemValue.getReferenceTypeName().equalsIgnoreCase("null")) {
+					String referenceTypeName = itemValue.getReferenceTypeName();
+					if (i == 0) {
+						String typeImpl = COLLECTION_TYPES.containsKey(javaType) ? COLLECTION_TYPES.get(javaType) : javaType;
+						print(genericConstructor(typeImpl, referenceTypeName).assignedTo(javaType, referenceTypeName, fieldName));					
+					}
+					
+					String varName = "item" + i;
+					handleTypes("", varName, referenceTypeName, itemValue);
+					print(value(varName).addTo(fieldName));
+				}	
 			}
 		}
 	}
