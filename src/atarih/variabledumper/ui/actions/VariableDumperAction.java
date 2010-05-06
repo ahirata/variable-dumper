@@ -33,10 +33,6 @@ import org.eclipse.ui.internal.ViewPluginAction;
 
 import atarih.variabledumper.util.Output;
 
-// TODO - refactor: methods like getJavaType and getValue do lots of things
-//        every time they're called and we are using them a bunch of times inside
-//        the same method. we should store them using local variables
-//		  after the first call.
 public class VariableDumperAction implements IViewActionDelegate {
 	
 	private static final List<String> TYPES = Arrays.asList(new String[] {
@@ -115,6 +111,9 @@ public class VariableDumperAction implements IViewActionDelegate {
 		} else if (value.getClass().equals(JDIArrayValue.class)) {
 			handleArray(variableName, fieldName, javaType, value);
 			
+		} else if (isEnum(value)) {
+			handleEnum(variableName, fieldName, javaType, value);
+		    				
 		} else if (value.getClass().equals(JDIObjectValue.class) && Collection.class.isAssignableFrom(Class.forName(javaType))) {
 			handleList(variableName, fieldName, javaType, value);
 			
@@ -122,7 +121,26 @@ public class VariableDumperAction implements IViewActionDelegate {
 			handleObject(variableName, fieldName, javaType, value);
 		}
     }
-
+	
+	private void handleEnum(String variableName, String fieldName, String javaType, IValue value) throws DebugException {
+		String enumValue = null;
+		
+		for (IVariable variable : value.getVariables()) {
+			if (variable.toString().equals("name")) {
+				enumValue = variable.getValue().getValueString();
+				break;
+			}
+		}
+		
+		if (variableName.equals("")) {
+	    	print(value(javaType + "." + enumValue).assignedTo(javaType, fieldName));
+	    } else if (fieldName.equals("")) {
+	    	print(value(javaType + "." + enumValue).assignedTo(variableName));
+	    } else {
+	    	print(value(javaType + "." + enumValue).setTo(variableName, fieldName));
+	    }
+	}
+	
 	private void handleObject(String variableName, String fieldName, String javaType, IValue value) throws DebugException, ClassNotFoundException {
 	    String tempVariableName = fieldName;
 	    if (variableName.equals("")) {
@@ -246,6 +264,19 @@ public class VariableDumperAction implements IViewActionDelegate {
 	private boolean isWrapper(String type) {
 		return TYPES.contains(type); 
 	}
+	
+	private boolean isEnum(IValue value) throws DebugException {
+		boolean isEnum = false;
+		
+		for (IVariable variable : value.getVariables()) {
+			if (variable.toString().equals("ENUM$VALUES")) {
+				isEnum = true;
+				break;
+			}
+		}
+		
+		return isEnum;
+	}	
 	
 	@Override
     public void selectionChanged(IAction action, ISelection selection) {
