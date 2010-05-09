@@ -9,7 +9,6 @@ import static atarih.variabledumper.util.OutputUtils.print;
 import static atarih.variabledumper.util.OutputUtils.value;
 
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
@@ -22,7 +21,6 @@ import org.eclipse.jdi.internal.ObjectReferenceImpl;
 import org.eclipse.jdi.internal.StringReferenceImpl;
 import org.eclipse.jdt.debug.core.IJavaValue;
 import org.eclipse.jdt.internal.debug.core.model.JDIArrayValue;
-import org.eclipse.jdt.internal.debug.core.model.JDILocalVariable;
 import org.eclipse.jdt.internal.debug.core.model.JDINullValue;
 import org.eclipse.jdt.internal.debug.core.model.JDIObjectValue;
 import org.eclipse.jdt.internal.debug.core.model.JDIPrimitiveValue;
@@ -104,7 +102,6 @@ public class VariableDumperAction implements IViewActionDelegate {
 
 	private void analyzeVariable(String variableName, JDIVariable field) throws DebugException, ClassNotFoundException {
 		IValue value = field.getValue();
-
 		String javaType = field.getJavaType().getName();
 		String fieldName = field.getName();
 		
@@ -118,12 +115,7 @@ public class VariableDumperAction implements IViewActionDelegate {
 	// TODO - under construction...
 	private void handleMap(JDIVariable field, String variableName, String javaType, String fieldName) {
 
-		if (field instanceof JDILocalVariable) {
-			// TODO
-			throw new RuntimeException("JDIFieldVariable not supported yet.");
-		}
 		JDIThread thread = JDIReflectionUtils.getUnderlyingThread(field); 
-		ObjectReferenceImpl values = (ObjectReferenceImpl) JDIReflectionUtils.invokeMethod(field, "values", (Object[]) null);
 	    
 		ObjectReferenceImpl entrySet = (ObjectReferenceImpl) JDIReflectionUtils.invokeMethod(field, "entrySet", null);
 		ArrayReferenceImpl entryArray = (ArrayReferenceImpl) JDIReflectionUtils.invokeMethod(thread, entrySet, "toArray", (Object[]) null);
@@ -131,6 +123,8 @@ public class VariableDumperAction implements IViewActionDelegate {
 		boolean initialized = false;
 		String genericKey = null;
 		String genericValue = null;
+		String tempVariableName = null;
+		
 		for (int i=0; i<entryArray.getValues().size(); i++) {
 			ObjectReferenceImpl entry = (ObjectReferenceImpl) entryArray.getValues().get(i);
 			ObjectReferenceImpl key = (ObjectReferenceImpl) JDIReflectionUtils.invokeMethod(thread, entry, "getKey", (Object[]) null);
@@ -139,11 +133,24 @@ public class VariableDumperAction implements IViewActionDelegate {
 			StringReferenceImpl stringKey = (StringReferenceImpl) JDIReflectionUtils.invokeMethod(thread, key, "toString", (Object[]) null);
 			StringReferenceImpl stringValue = (StringReferenceImpl) JDIReflectionUtils.invokeMethod(thread, value, "toString", (Object[]) null);
 			
+			
 			if (!initialized) {
 				try { 
 					genericKey = key.referenceType().toString();
 					genericValue = value.referenceType().toString();
-	                print(genericConstructor("java.util.HashMap", genericKey + "," + genericValue).assignedTo(field.getReferenceTypeName() + variableName));
+					
+					if (variableName.equals("")) {
+						tempVariableName = fieldName;
+						print(genericConstructor("java.util.HashMap", genericKey + "," + genericValue).assignedTo(field.getReferenceTypeName(), tempVariableName));
+					} else if (fieldName.equals("")) {
+						tempVariableName = variableName;
+						print(genericConstructor("java.util.HashMap", genericKey + "," + genericValue).assignedTo(field.getReferenceTypeName(), tempVariableName));
+					} else {
+						tempVariableName = variableName+Output.capitalize(fieldName);
+						print(genericConstructor("java.util.HashMap", genericKey + "," + genericValue).assignedTo(field.getReferenceTypeName(), tempVariableName));
+						print(value(tempVariableName).setTo(variableName, fieldName));
+					}
+					
 	                initialized = true;
                 } catch (DebugException e) {
 	                // TODO Auto-generated catch block
@@ -151,31 +158,14 @@ public class VariableDumperAction implements IViewActionDelegate {
                 }
 			} 
             
-    		if (variableName.equals("")) {
-    			print(constructor(genericKey, stringKey.toString()).assignedTo(genericKey, fieldName + "key"+i ));
-    		} else {
-    			print(constructor(genericKey, stringKey.toString()).assignedTo(genericKey, variableName + "key"+i ));
-    		}
-    		if (variableName.equals("")) {
-    			print(constructor(genericKey, stringValue.toString()).assignedTo(genericKey, fieldName + "value"+i));
-    		} else {
-    			print(constructor(genericKey, stringKey.toString()).assignedTo(genericKey, variableName + "value"+i ));
-    		}
-    		if (variableName.equals("")) {
-    			print(value(fieldName + "key"+i + "," + "value"+i).putTo(fieldName));
-    		} else {
-    			print(value(variableName + "key"+i + "," + "value"+i).putTo(fieldName));
-    		}
+			print(constructor(genericKey, stringKey.toString()).assignedTo(genericKey, tempVariableName + "key" + i));
+			print(constructor(genericKey, stringValue.toString()).assignedTo(genericKey, tempVariableName + "value" + i));
+			print(value(tempVariableName + "key"+i + "," + "value"+i).putTo(tempVariableName));
+    		
 		}
-	}
-	
-	private void handleLong() {
-		
 	}
 
 	private void handleTypes(String variableName, String fieldName, String javaType, IValue value) throws DebugException, ClassNotFoundException {
-		
-		String output = new DetailStealer().getVariableDetail((IJavaValue)value);
 		
 	    if (value.getClass().equals(JDINullValue.class)) {
 	    	handleNullValue(variableName, fieldName, javaType);
@@ -192,8 +182,9 @@ public class VariableDumperAction implements IViewActionDelegate {
 		} else if (isEnum(value)) {
 			handleEnum(variableName, fieldName, javaType, value);
 		    				
-			// FIXME - Class.forName() will crash with ClassNotFoundException for any user created class. we are not using the same class loader..
-		} else if (value.getClass().equals(JDIObjectValue.class) && Collection.class.isAssignableFrom(Class.forName(javaType))) {
+			// FIXME - Class.forName() would crash with ClassNotFoundException for any user created class since we're not using the same class loader..
+			// lets use 'contains' as a workaround.
+		} else if (value.getClass().equals(JDIObjectValue.class) && COLLECTION_TYPES.keySet().contains(javaType)) {
 			handleList(variableName, fieldName, javaType, value);
 			
 		} else {

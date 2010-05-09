@@ -6,11 +6,14 @@ import java.util.Arrays;
 import java.util.List;
 
 import org.eclipse.debug.core.DebugException;
+import org.eclipse.debug.core.model.IThread;
 import org.eclipse.jdi.internal.ClassTypeImpl;
+import org.eclipse.jdt.debug.core.IJavaDebugTarget;
+import org.eclipse.jdt.debug.core.IJavaThread;
 import org.eclipse.jdt.internal.debug.core.model.JDIObjectValue;
-import org.eclipse.jdt.internal.debug.core.model.JDIStackFrame;
 import org.eclipse.jdt.internal.debug.core.model.JDIThread;
 import org.eclipse.jdt.internal.debug.core.model.JDIVariable;
+import org.eclipse.jdt.internal.debug.ui.JDIModelPresentation;
 
 import com.sun.jdi.ClassNotLoadedException;
 import com.sun.jdi.ClassType;
@@ -106,19 +109,17 @@ public class JDIReflectionUtils {
     }
 	
 	public static JDIThread getUnderlyingThread(JDIVariable object) {
-		JDIStackFrame stackFrame = null;
-        try {
-	        stackFrame = (JDIStackFrame) ReflectionUtils.invokeMethod(object, "getStackFrame", (Class<?>[]) null, (Object[]) null);
-        } catch (NoSuchMethodException e) {
-	        // TODO Auto-generated catch block
-	        e.printStackTrace();
-        } catch (IllegalAccessException e) {
-	        // TODO Auto-generated catch block
-	        e.printStackTrace();
-        } catch (InvocationTargetException e) {
-	        // TODO Auto-generated catch block
-	        e.printStackTrace();
-        }
-		return ((JDIThread)stackFrame.getThread());		
+		IThread iThread = null;
+		
+		IJavaThread thread = JDIModelPresentation.getEvaluationThread((IJavaDebugTarget)object.getDebugTarget());
+
+		try {
+			iThread = thread.getTopStackFrame().getThread();
+		} catch (DebugException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+
+		return (JDIThread) iThread;		
 	}
 }
