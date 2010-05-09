@@ -17,10 +17,16 @@ import java.util.TreeMap;
 import org.eclipse.debug.core.DebugException;
 import org.eclipse.debug.core.model.IValue;
 import org.eclipse.debug.core.model.IVariable;
+import org.eclipse.jdi.internal.ArrayReferenceImpl;
+import org.eclipse.jdi.internal.ObjectReferenceImpl;
+import org.eclipse.jdi.internal.StringReferenceImpl;
+import org.eclipse.jdt.debug.core.IJavaValue;
 import org.eclipse.jdt.internal.debug.core.model.JDIArrayValue;
+import org.eclipse.jdt.internal.debug.core.model.JDILocalVariable;
 import org.eclipse.jdt.internal.debug.core.model.JDINullValue;
 import org.eclipse.jdt.internal.debug.core.model.JDIObjectValue;
 import org.eclipse.jdt.internal.debug.core.model.JDIPrimitiveValue;
+import org.eclipse.jdt.internal.debug.core.model.JDIThread;
 import org.eclipse.jdt.internal.debug.core.model.JDIVariable;
 import org.eclipse.jface.action.IAction;
 import org.eclipse.jface.viewers.ISelection;
@@ -31,6 +37,8 @@ import org.eclipse.ui.IViewPart;
 import org.eclipse.ui.IWorkbenchWindow;
 import org.eclipse.ui.internal.ViewPluginAction;
 
+import atarih.variabledumper.util.DetailStealer;
+import atarih.variabledumper.util.JDIReflectionUtils;
 import atarih.variabledumper.util.Output;
 
 public class VariableDumperAction implements IViewActionDelegate {
@@ -52,6 +60,10 @@ public class VariableDumperAction implements IViewActionDelegate {
 		COLLECTION_TYPES.put("java.util.Set", "java.util.HashSet");
 		COLLECTION_TYPES.put("java.util.Collection", "java.util.ArrayList");
 	}
+	
+	private static final List<String> MAP_TYPES = Arrays.asList(new String[] { 
+			"java.util.Map"
+	});
 	
 	// just a test...
 	IWorkbenchWindow activeWindow = null;
@@ -92,13 +104,79 @@ public class VariableDumperAction implements IViewActionDelegate {
 
 	private void analyzeVariable(String variableName, JDIVariable field) throws DebugException, ClassNotFoundException {
 		IValue value = field.getValue();
+
 		String javaType = field.getJavaType().getName();
 		String fieldName = field.getName();
 		
-		handleTypes(variableName, fieldName, javaType, value); 
+		if (MAP_TYPES.contains(javaType)) {
+			handleMap(field, variableName, javaType, fieldName);
+		} else {
+			handleTypes(variableName, fieldName, javaType, value);
+		}
     }
 
+	// TODO - under construction...
+	private void handleMap(JDIVariable field, String variableName, String javaType, String fieldName) {
+
+		if (field instanceof JDILocalVariable) {
+			// TODO
+			throw new RuntimeException("JDIFieldVariable not supported yet.");
+		}
+		JDIThread thread = JDIReflectionUtils.getUnderlyingThread(field); 
+		ObjectReferenceImpl values = (ObjectReferenceImpl) JDIReflectionUtils.invokeMethod(field, "values", (Object[]) null);
+	    
+		ObjectReferenceImpl entrySet = (ObjectReferenceImpl) JDIReflectionUtils.invokeMethod(field, "entrySet", null);
+		ArrayReferenceImpl entryArray = (ArrayReferenceImpl) JDIReflectionUtils.invokeMethod(thread, entrySet, "toArray", (Object[]) null);
+		
+		boolean initialized = false;
+		String genericKey = null;
+		String genericValue = null;
+		for (int i=0; i<entryArray.getValues().size(); i++) {
+			ObjectReferenceImpl entry = (ObjectReferenceImpl) entryArray.getValues().get(i);
+			ObjectReferenceImpl key = (ObjectReferenceImpl) JDIReflectionUtils.invokeMethod(thread, entry, "getKey", (Object[]) null);
+			ObjectReferenceImpl value = (ObjectReferenceImpl) JDIReflectionUtils.invokeMethod(thread, entry, "getValue", (Object[]) null);
+		
+			StringReferenceImpl stringKey = (StringReferenceImpl) JDIReflectionUtils.invokeMethod(thread, key, "toString", (Object[]) null);
+			StringReferenceImpl stringValue = (StringReferenceImpl) JDIReflectionUtils.invokeMethod(thread, value, "toString", (Object[]) null);
+			
+			if (!initialized) {
+				try { 
+					genericKey = key.referenceType().toString();
+					genericValue = value.referenceType().toString();
+	                print(genericConstructor("java.util.HashMap", genericKey + "," + genericValue).assignedTo(field.getReferenceTypeName() + variableName));
+	                initialized = true;
+                } catch (DebugException e) {
+	                // TODO Auto-generated catch block
+	                e.printStackTrace();
+                }
+			} 
+            
+    		if (variableName.equals("")) {
+    			print(constructor(genericKey, stringKey.toString()).assignedTo(genericKey, fieldName + "key"+i ));
+    		} else {
+    			print(constructor(genericKey, stringKey.toString()).assignedTo(genericKey, variableName + "key"+i ));
+    		}
+    		if (variableName.equals("")) {
+    			print(constructor(genericKey, stringValue.toString()).assignedTo(genericKey, fieldName + "value"+i));
+    		} else {
+    			print(constructor(genericKey, stringKey.toString()).assignedTo(genericKey, variableName + "value"+i ));
+    		}
+    		if (variableName.equals("")) {
+    			print(value(fieldName + "key"+i + "," + "value"+i).putTo(fieldName));
+    		} else {
+    			print(value(variableName + "key"+i + "," + "value"+i).putTo(fieldName));
+    		}
+		}
+	}
+	
+	private void handleLong() {
+		
+	}
+
 	private void handleTypes(String variableName, String fieldName, String javaType, IValue value) throws DebugException, ClassNotFoundException {
+		
+		String output = new DetailStealer().getVariableDetail((IJavaValue)value);
+		
 	    if (value.getClass().equals(JDINullValue.class)) {
 	    	handleNullValue(variableName, fieldName, javaType);
 			
@@ -114,6 +192,7 @@ public class VariableDumperAction implements IViewActionDelegate {
 		} else if (isEnum(value)) {
 			handleEnum(variableName, fieldName, javaType, value);
 		    				
+			// FIXME - Class.forName() will crash with ClassNotFoundException for any user created class. we are not using the same class loader..
 		} else if (value.getClass().equals(JDIObjectValue.class) && Collection.class.isAssignableFrom(Class.forName(javaType))) {
 			handleList(variableName, fieldName, javaType, value);
 			
@@ -121,7 +200,7 @@ public class VariableDumperAction implements IViewActionDelegate {
 			handleObject(variableName, fieldName, javaType, value);
 		}
     }
-	
+		
 	private void handleEnum(String variableName, String fieldName, String javaType, IValue value) throws DebugException {
 		String enumValue = null;
 		

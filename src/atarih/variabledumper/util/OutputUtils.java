@@ -25,6 +25,12 @@ public class OutputUtils {
 		return output;
 	}
 	
+	public static Output genericConstructor(String javaType, String genericKeyType, String genericValueType) {
+		Output output = new Output();
+		output.setValue("new "+ javaType + "<" + genericKeyType + ", " + genericValueType + ">()");
+		return output;
+	}
+	
 	public static Output arrayIndex(String variable, String fieldName, int index) {
 		Output output = new Output();
 		

@@ -31,6 +31,11 @@ public class Output {
 		this.value = variableName + ".add(" + this.value + ");";
 		return this;
 	}
+
+	public Output putTo(String variableName) {
+		this.value = variableName + ".put(" + this.value + ")";
+		return this;
+	}
 	
 	public static String capitalize(String fieldName) {
 		return fieldName.substring(0, 1).toUpperCase().concat(fieldName.substring(1, fieldName.length()));
