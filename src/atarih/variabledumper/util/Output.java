@@ -33,7 +33,7 @@ public class Output {
 	}
 
 	public Output putTo(String variableName) {
-		this.value = variableName + ".put(" + this.value + ")";
+		this.value = variableName + ".put(" + this.value + ");";
 		return this;
 	}
 	

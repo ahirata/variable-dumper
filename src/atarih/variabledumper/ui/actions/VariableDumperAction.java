@@ -19,7 +19,6 @@ import org.eclipse.debug.core.model.IVariable;
 import org.eclipse.jdi.internal.ArrayReferenceImpl;
 import org.eclipse.jdi.internal.ObjectReferenceImpl;
 import org.eclipse.jdi.internal.StringReferenceImpl;
-import org.eclipse.jdt.debug.core.IJavaValue;
 import org.eclipse.jdt.internal.debug.core.model.JDIArrayValue;
 import org.eclipse.jdt.internal.debug.core.model.JDINullValue;
 import org.eclipse.jdt.internal.debug.core.model.JDIObjectValue;
@@ -35,7 +34,6 @@ import org.eclipse.ui.IViewPart;
 import org.eclipse.ui.IWorkbenchWindow;
 import org.eclipse.ui.internal.ViewPluginAction;
 
-import atarih.variabledumper.util.DetailStealer;
 import atarih.variabledumper.util.JDIReflectionUtils;
 import atarih.variabledumper.util.Output;
 
@@ -138,16 +136,30 @@ public class VariableDumperAction implements IViewActionDelegate {
 				try { 
 					genericKey = key.referenceType().toString();
 					genericValue = value.referenceType().toString();
+					String javaTypeImpl = ((JDIObjectValue)field.getValue()).getReferenceTypeName().replaceFirst("<K,V>", "");
 					
+					String comparator = "";
+					if (javaTypeImpl.equals("java.util.TreeMap")) {
+						ObjectReferenceImpl mapComparator = (ObjectReferenceImpl) JDIReflectionUtils.invokeMethod(field, "comparator", null);
+						if (mapComparator != null) {
+							comparator = defaultConstructor(mapComparator.type().toString()).toString();
+							
+							// should we do something about inner classes other than static ones?
+							comparator = comparator.replace("$", ".");
+							
+						}
+					}
 					if (variableName.equals("")) {
 						tempVariableName = fieldName;
-						print(genericConstructor("java.util.HashMap", genericKey + "," + genericValue).assignedTo(field.getReferenceTypeName(), tempVariableName));
+						print(genericConstructor(javaTypeImpl, comparator, genericKey, genericValue).assignedTo(field.getReferenceTypeName(), tempVariableName));
 					} else if (fieldName.equals("")) {
 						tempVariableName = variableName;
-						print(genericConstructor("java.util.HashMap", genericKey + "," + genericValue).assignedTo(field.getReferenceTypeName(), tempVariableName));
+						print(genericConstructor(javaTypeImpl, comparator, genericKey, genericValue).assignedTo(field.getReferenceTypeName(), tempVariableName));
 					} else {
 						tempVariableName = variableName+Output.capitalize(fieldName);
-						print(genericConstructor("java.util.HashMap", genericKey + "," + genericValue).assignedTo(field.getReferenceTypeName(), tempVariableName));
+						
+						print(genericConstructor(javaTypeImpl, comparator, genericKey, genericValue).assignedTo(field.getReferenceTypeName(), tempVariableName));
+						
 						print(value(tempVariableName).setTo(variableName, fieldName));
 					}
 					
@@ -159,8 +171,8 @@ public class VariableDumperAction implements IViewActionDelegate {
 			} 
             
 			print(constructor(genericKey, stringKey.toString()).assignedTo(genericKey, tempVariableName + "key" + i));
-			print(constructor(genericKey, stringValue.toString()).assignedTo(genericKey, tempVariableName + "value" + i));
-			print(value(tempVariableName + "key"+i + "," + "value"+i).putTo(tempVariableName));
+			print(constructor(genericValue, stringValue.toString()).assignedTo(genericValue, tempVariableName + "value" + i));
+			print(value(tempVariableName + "key"+i + "," + tempVariableName + "value"+i).putTo(tempVariableName));
     		
 		}
 	}

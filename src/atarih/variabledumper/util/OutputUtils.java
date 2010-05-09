@@ -1,5 +1,7 @@
 package atarih.variabledumper.util;
 
+import java.util.Arrays;
+
 
 public class OutputUtils {
 
@@ -19,15 +21,16 @@ public class OutputUtils {
 		return output;
 	}
 
-	public static Output genericConstructor(String javaType, String genericType) {
+	public static Output genericConstructor(String javaType, String value, String... genericTypes) {
 		Output output = new Output();
-		output.setValue("new "+ javaType + "<" + genericType + ">()");
+		String generics = Arrays.toString(genericTypes).replace("[", "").replace("]", "");
+		output.setValue("new "+ javaType + "<" + generics + ">(" + value + ")");
 		return output;
 	}
 	
-	public static Output genericConstructor(String javaType, String genericKeyType, String genericValueType) {
+	public static Output genericConstructor(String javaType, String genericType) {
 		Output output = new Output();
-		output.setValue("new "+ javaType + "<" + genericKeyType + ", " + genericValueType + ">()");
+		output.setValue("new "+ javaType + "<" + genericType + ">()");
 		return output;
 	}
 	
