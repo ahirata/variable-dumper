@@ -17,7 +17,10 @@ public class Output {
 		this.value = javaType + "<" + genericType + "> " + variableName + " = " + this.value + ";";
 		return this;
 	}
-
+	public Output assignedTo(String javaType, String genericKey, String genericValue, String variableName) {
+		this.value = javaType + "<" + genericKey + ", " + genericValue +  "> " + variableName + " = " + this.value + ";";
+		return this;
+	}
 	public Output assignedTo(Output output) {
 		return assignedTo(output.value);
 	}

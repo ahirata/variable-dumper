@@ -19,7 +19,6 @@ import org.eclipse.debug.core.model.IValue;
 import org.eclipse.debug.core.model.IVariable;
 import org.eclipse.jdi.internal.ArrayReferenceImpl;
 import org.eclipse.jdi.internal.ObjectReferenceImpl;
-import org.eclipse.jdi.internal.StringReferenceImpl;
 import org.eclipse.jdt.internal.debug.core.model.JDIArrayValue;
 import org.eclipse.jdt.internal.debug.core.model.JDIDebugTarget;
 import org.eclipse.jdt.internal.debug.core.model.JDINullValue;
@@ -120,20 +119,21 @@ public class VariableDumperAction implements IViewActionDelegate {
 		boolean initialized = false;
 		String genericKey = null;
 		String genericValue = null;
-		String tempVariableName = null;
+		String localVariableName = null;
 		
 		for (int i=0; i<entryArray.getValues().size(); i++) {
 			ObjectReferenceImpl entry = (ObjectReferenceImpl) entryArray.getValues().get(i);
-			ObjectReferenceImpl entryKey = (ObjectReferenceImpl) JDIReflectionUtils.invokeMethod(thread, entry, "getKey", (Object[]) null);
-			ObjectReferenceImpl entryValue = (ObjectReferenceImpl) JDIReflectionUtils.invokeMethod(thread, entry, "getValue", (Object[]) null);
-		
-			StringReferenceImpl stringKey = (StringReferenceImpl) JDIReflectionUtils.invokeMethod(thread, entryKey, "toString", (Object[]) null);
-			StringReferenceImpl stringValue = (StringReferenceImpl) JDIReflectionUtils.invokeMethod(thread, entryValue, "toString", (Object[]) null);
+			ObjectReferenceImpl refKey = (ObjectReferenceImpl) JDIReflectionUtils.invokeMethod(thread, entry, "getKey", (Object[]) null);
+			ObjectReferenceImpl refValue = (ObjectReferenceImpl) JDIReflectionUtils.invokeMethod(thread, entry, "getValue", (Object[]) null);
+			
+			IValue entryKey = JDIValue.createValue((JDIDebugTarget)value.getDebugTarget(), refKey);
+			IValue entryValue = JDIValue.createValue((JDIDebugTarget)value.getDebugTarget(), refValue);
 			
 			if (!initialized) {
 				try { 
-					genericKey = entryKey.referenceType().toString();
-					genericValue = entryValue.referenceType().toString();
+					genericKey = entryKey.getReferenceTypeName();
+					genericValue = entryValue.getReferenceTypeName();
+					
 					String javaTypeImpl = ((JDIObjectValue)value).getReferenceTypeName().replaceFirst("<K,V>", "");
 					
 					String comparator = "";
@@ -148,17 +148,18 @@ public class VariableDumperAction implements IViewActionDelegate {
 						}
 					}
 					if (variableName.equals("")) {
-						tempVariableName = fieldName;
-						print(genericConstructor(javaTypeImpl, comparator, genericKey, genericValue).assignedTo(javaType, tempVariableName));
+						localVariableName = fieldName;
+						print(genericConstructor(javaTypeImpl, comparator, genericKey, genericValue).assignedTo(javaType, genericKey, genericValue, localVariableName));
+						
 					} else if (fieldName.equals("")) {
-						tempVariableName = variableName;
-						print(genericConstructor(javaTypeImpl, comparator, genericKey, genericValue).assignedTo(javaType, tempVariableName));
+						localVariableName = variableName;
+						print(genericConstructor(javaTypeImpl, comparator, genericKey, genericValue).assignedTo(javaType, genericKey, genericValue, localVariableName));
+						
 					} else {
-						tempVariableName = variableName+Output.capitalize(fieldName);
+						localVariableName = variableName+Output.capitalize(fieldName);
 						
-						print(genericConstructor(javaTypeImpl, comparator, genericKey, genericValue).assignedTo(javaType, tempVariableName));
-						
-						print(value(tempVariableName).setTo(variableName, fieldName));
+						print(genericConstructor(javaTypeImpl, comparator, genericKey, genericValue).assignedTo(javaType, genericKey, genericValue, localVariableName));
+						print(value(localVariableName).setTo(variableName, fieldName));
 					}
 					
 	                initialized = true;
@@ -168,9 +169,20 @@ public class VariableDumperAction implements IViewActionDelegate {
                 }
 			} 
             
-			print(constructor(genericKey, stringKey.toString()).assignedTo(genericKey, tempVariableName + "key" + i));
-			print(constructor(genericValue, stringValue.toString()).assignedTo(genericValue, tempVariableName + "value" + i));
-			print(value(tempVariableName + "key"+i + "," + tempVariableName + "value"+i).putTo(tempVariableName));
+			String keyVariableName = localVariableName + "key" + i ;
+			String valueVariableName = localVariableName + "value" + i ;
+			try {
+	            handleTypes("", keyVariableName, genericKey, entryKey);
+	            handleTypes("", valueVariableName, genericValue, entryValue);
+            } catch (DebugException e) {
+	            // TODO Auto-generated catch block
+	            e.printStackTrace();
+            } catch (ClassNotFoundException e) {
+	            // TODO Auto-generated catch block
+	            e.printStackTrace();
+            }
+			
+			print(value(keyVariableName + ", " + valueVariableName).putTo(localVariableName));
 		}
 	}
 
@@ -309,13 +321,19 @@ public class VariableDumperAction implements IViewActionDelegate {
 		}
 
 		for (int i=0; i<variables.length; i++) {
+			String localArrayVariableName = null;
 			if (variableName.equals("")) {
-				handleTypes(arrayIndex("", fieldName, i).toString(), "", arrayType, variables[i].getValue());
+				localArrayVariableName = fieldName + i;
+				
 			} else if (fieldName.equals("")) {
-				handleTypes(arrayIndex("", variableName, i).toString(), "", arrayType, variables[i].getValue());
+				localArrayVariableName = variableName + i;
+
 			} else {
-				handleTypes(arrayIndex(variableName, fieldName, i).toString(), "", arrayType, variables[i].getValue());
+				localArrayVariableName = variableName + Output.capitalize(fieldName) + i;
+				
 			}
+			handleTypes(localArrayVariableName, "", arrayType, variables[i].getValue());
+			print(value(localArrayVariableName).assignedTo(arrayIndex(variableName, fieldName, i)));
 		}
 	}
 
