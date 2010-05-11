@@ -9,6 +9,7 @@ import static atarih.variabledumper.util.OutputUtils.print;
 import static atarih.variabledumper.util.OutputUtils.value;
 
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
@@ -202,12 +203,10 @@ public class VariableDumperAction implements IViewActionDelegate {
 		} else if (isEnum(value)) {
 			handleEnum(variableName, fieldName, javaType, value);
 		    				
-			// FIXME - Class.forName() would crash with ClassNotFoundException for any user created class since we're not using the same class loader..
-			// lets use 'contains' as a workaround.
-		} else if (value.getClass().equals(JDIObjectValue.class) && COLLECTION_TYPES.keySet().contains(javaType)) {
+		} else if (value.getClass().equals(JDIObjectValue.class) && (this.isJavaInternalClass(javaType) && Collection.class.isAssignableFrom(Class.forName(javaType)))) {
 			handleList(variableName, fieldName, javaType, value);
 			
-		} else if (MAP_TYPES.contains(javaType)) {
+		} else if (value.getClass().equals(JDIObjectValue.class) && (this.isJavaInternalClass(javaType) && Map.class.isAssignableFrom(Class.forName(javaType)))) {
 			handleMap(variableName, fieldName, javaType, value);
 			
 		} else {
@@ -338,25 +337,22 @@ public class VariableDumperAction implements IViewActionDelegate {
 		}
 	}
 
-	private void handleList(String variableName, String fieldName, String javaType, IValue fieldValue) throws DebugException, ClassNotFoundException {
-		IVariable[] variables = fieldValue.getVariables();
-
-		for (IVariable iVariable : variables) {
-			for (int i = 0; i < iVariable.getValue().getVariables().length; i++) {
-				IValue itemValue = iVariable.getValue().getVariables()[i].getValue();
-				
-				if (!itemValue.getReferenceTypeName().equalsIgnoreCase("null")) {
-					String referenceTypeName = itemValue.getReferenceTypeName();
-					if (i == 0) {
-						String typeImpl = COLLECTION_TYPES.containsKey(javaType) ? COLLECTION_TYPES.get(javaType) : javaType;
-						print(genericConstructor(typeImpl, referenceTypeName).assignedTo(javaType, referenceTypeName, fieldName));					
-					}
-					
-					String varName = "item" + i;
-					handleTypes("", varName, referenceTypeName, itemValue);
-					print(value(varName).addTo(fieldName));
-				}	
+	private void handleList(String variableName, String fieldName, String javaType, IValue value) throws DebugException, ClassNotFoundException {
+		ArrayReferenceImpl arrayList = (ArrayReferenceImpl) JDIReflectionUtils.invokeMethod(value, "toArray", (Object[]) null);
+		
+		for (int i = 0; i < arrayList.getValues().size(); i++) {
+			ObjectReferenceImpl item = (ObjectReferenceImpl) arrayList.getValues().get(i);
+			IValue itemValue = JDIValue.createValue((JDIDebugTarget) value.getDebugTarget(), item);
+			
+			String referenceTypeName = itemValue.getReferenceTypeName();
+			if (i == 0) {
+				String typeImpl = COLLECTION_TYPES.containsKey(javaType) ? COLLECTION_TYPES.get(javaType) : javaType;
+				print(genericConstructor(typeImpl, referenceTypeName).assignedTo(javaType, referenceTypeName, fieldName));					
 			}
+			
+			String varName = "item" + i;
+			handleTypes("", varName, referenceTypeName, itemValue);
+			print(value(varName).addTo(fieldName));
 		}
 	}
 	
@@ -376,6 +372,10 @@ public class VariableDumperAction implements IViewActionDelegate {
 		
 		return isEnum;
 	}	
+	
+	private boolean isJavaInternalClass(String clazz) {
+		return clazz.startsWith("java.");
+	}
 	
 	@Override
     public void selectionChanged(IAction action, ISelection selection) {
