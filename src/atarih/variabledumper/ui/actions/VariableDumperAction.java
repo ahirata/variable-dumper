@@ -103,19 +103,15 @@ public class VariableDumperAction implements IViewActionDelegate {
 		String javaType = field.getJavaType().getName();
 		String fieldName = field.getName();
 		
-		if (MAP_TYPES.contains(javaType)) {
-			handleMap(field, variableName, javaType, fieldName);
-		} else {
-			handleTypes(variableName, fieldName, javaType, value);
-		}
+		handleTypes(variableName, fieldName, javaType, value);
     }
 
 	// TODO - under construction...
-	private void handleMap(JDIVariable field, String variableName, String javaType, String fieldName) {
+	private void handleMap(String variableName, String fieldName, String javaType, IValue value) {
 
-		JDIThread thread = JDIReflectionUtils.getUnderlyingThread(field); 
+		JDIThread thread = JDIReflectionUtils.getUnderlyingThread(value); 
 	    
-		ObjectReferenceImpl entrySet = (ObjectReferenceImpl) JDIReflectionUtils.invokeMethod(field, "entrySet", null);
+		ObjectReferenceImpl entrySet = (ObjectReferenceImpl) JDIReflectionUtils.invokeMethod(value, "entrySet", null);
 		ArrayReferenceImpl entryArray = (ArrayReferenceImpl) JDIReflectionUtils.invokeMethod(thread, entrySet, "toArray", (Object[]) null);
 		
 		boolean initialized = false;
@@ -125,22 +121,21 @@ public class VariableDumperAction implements IViewActionDelegate {
 		
 		for (int i=0; i<entryArray.getValues().size(); i++) {
 			ObjectReferenceImpl entry = (ObjectReferenceImpl) entryArray.getValues().get(i);
-			ObjectReferenceImpl key = (ObjectReferenceImpl) JDIReflectionUtils.invokeMethod(thread, entry, "getKey", (Object[]) null);
-			ObjectReferenceImpl value = (ObjectReferenceImpl) JDIReflectionUtils.invokeMethod(thread, entry, "getValue", (Object[]) null);
+			ObjectReferenceImpl entryKey = (ObjectReferenceImpl) JDIReflectionUtils.invokeMethod(thread, entry, "getKey", (Object[]) null);
+			ObjectReferenceImpl entryValue = (ObjectReferenceImpl) JDIReflectionUtils.invokeMethod(thread, entry, "getValue", (Object[]) null);
 		
-			StringReferenceImpl stringKey = (StringReferenceImpl) JDIReflectionUtils.invokeMethod(thread, key, "toString", (Object[]) null);
-			StringReferenceImpl stringValue = (StringReferenceImpl) JDIReflectionUtils.invokeMethod(thread, value, "toString", (Object[]) null);
-			
+			StringReferenceImpl stringKey = (StringReferenceImpl) JDIReflectionUtils.invokeMethod(thread, entryKey, "toString", (Object[]) null);
+			StringReferenceImpl stringValue = (StringReferenceImpl) JDIReflectionUtils.invokeMethod(thread, entryValue, "toString", (Object[]) null);
 			
 			if (!initialized) {
 				try { 
-					genericKey = key.referenceType().toString();
-					genericValue = value.referenceType().toString();
-					String javaTypeImpl = ((JDIObjectValue)field.getValue()).getReferenceTypeName().replaceFirst("<K,V>", "");
+					genericKey = entryKey.referenceType().toString();
+					genericValue = entryValue.referenceType().toString();
+					String javaTypeImpl = ((JDIObjectValue)value).getReferenceTypeName().replaceFirst("<K,V>", "");
 					
 					String comparator = "";
 					if (javaTypeImpl.equals("java.util.TreeMap")) {
-						ObjectReferenceImpl mapComparator = (ObjectReferenceImpl) JDIReflectionUtils.invokeMethod(field, "comparator", null);
+						ObjectReferenceImpl mapComparator = (ObjectReferenceImpl) JDIReflectionUtils.invokeMethod(value, "comparator", null);
 						if (mapComparator != null) {
 							comparator = defaultConstructor(mapComparator.type().toString()).toString();
 							
@@ -151,14 +146,14 @@ public class VariableDumperAction implements IViewActionDelegate {
 					}
 					if (variableName.equals("")) {
 						tempVariableName = fieldName;
-						print(genericConstructor(javaTypeImpl, comparator, genericKey, genericValue).assignedTo(field.getReferenceTypeName(), tempVariableName));
+						print(genericConstructor(javaTypeImpl, comparator, genericKey, genericValue).assignedTo(javaType, tempVariableName));
 					} else if (fieldName.equals("")) {
 						tempVariableName = variableName;
-						print(genericConstructor(javaTypeImpl, comparator, genericKey, genericValue).assignedTo(field.getReferenceTypeName(), tempVariableName));
+						print(genericConstructor(javaTypeImpl, comparator, genericKey, genericValue).assignedTo(javaType, tempVariableName));
 					} else {
 						tempVariableName = variableName+Output.capitalize(fieldName);
 						
-						print(genericConstructor(javaTypeImpl, comparator, genericKey, genericValue).assignedTo(field.getReferenceTypeName(), tempVariableName));
+						print(genericConstructor(javaTypeImpl, comparator, genericKey, genericValue).assignedTo(javaType, tempVariableName));
 						
 						print(value(tempVariableName).setTo(variableName, fieldName));
 					}
@@ -173,7 +168,6 @@ public class VariableDumperAction implements IViewActionDelegate {
 			print(constructor(genericKey, stringKey.toString()).assignedTo(genericKey, tempVariableName + "key" + i));
 			print(constructor(genericValue, stringValue.toString()).assignedTo(genericValue, tempVariableName + "value" + i));
 			print(value(tempVariableName + "key"+i + "," + tempVariableName + "value"+i).putTo(tempVariableName));
-    		
 		}
 	}
 
@@ -198,6 +192,9 @@ public class VariableDumperAction implements IViewActionDelegate {
 			// lets use 'contains' as a workaround.
 		} else if (value.getClass().equals(JDIObjectValue.class) && COLLECTION_TYPES.keySet().contains(javaType)) {
 			handleList(variableName, fieldName, javaType, value);
+			
+		} else if (MAP_TYPES.contains(javaType)) {
+			handleMap(variableName, fieldName, javaType, value);
 			
 		} else {
 			handleObject(variableName, fieldName, javaType, value);

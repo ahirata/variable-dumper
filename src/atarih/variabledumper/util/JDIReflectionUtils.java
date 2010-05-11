@@ -7,6 +7,7 @@ import java.util.List;
 
 import org.eclipse.debug.core.DebugException;
 import org.eclipse.debug.core.model.IThread;
+import org.eclipse.debug.core.model.IValue;
 import org.eclipse.jdi.internal.ClassTypeImpl;
 import org.eclipse.jdt.debug.core.IJavaDebugTarget;
 import org.eclipse.jdt.debug.core.IJavaThread;
@@ -51,17 +52,17 @@ public class JDIReflectionUtils {
 	    return method;
     }
 	
-	public static Object invokeMethod(JDIVariable field, String methodName, Object[] values) {
+	public static Object invokeMethod(IValue value, String methodName, Object[] values) {
 		
-		JDIThread jdiThread = getUnderlyingThread(field);
+		JDIThread jdiThread = getUnderlyingThread(value);
 		JDIObjectValue objectValue = null;
         
-		try {
-	        objectValue = (JDIObjectValue) field.getValue();
-        } catch (DebugException e1) {
-	        // TODO Auto-generated catch block
-	        e1.printStackTrace();
-        }
+//		try {
+	        objectValue = (JDIObjectValue) value;
+//        } catch (DebugException e1) {
+//	        // TODO Auto-generated catch block
+//	        e1.printStackTrace();
+//        }
         ObjectReference object = objectValue.getUnderlyingObject();
 
 		Object result = invokeMethod(jdiThread, object, methodName, values);
@@ -108,10 +109,10 @@ public class JDIReflectionUtils {
 	    return result;
     }
 	
-	public static JDIThread getUnderlyingThread(JDIVariable object) {
+	public static JDIThread getUnderlyingThread(IValue value) {
 		IThread iThread = null;
 		
-		IJavaThread thread = JDIModelPresentation.getEvaluationThread((IJavaDebugTarget)object.getDebugTarget());
+		IJavaThread thread = JDIModelPresentation.getEvaluationThread((IJavaDebugTarget)value.getDebugTarget());
 
 		try {
 			iThread = thread.getTopStackFrame().getThread();
