@@ -1,11 +1,11 @@
 package atarih.variabledumper.ui.actions;
 
+import static atarih.variabledumper.ui.console.ConsoleOutput.print;
 import static atarih.variabledumper.util.OutputUtils.arrayConstructor;
 import static atarih.variabledumper.util.OutputUtils.arrayIndex;
 import static atarih.variabledumper.util.OutputUtils.constructor;
 import static atarih.variabledumper.util.OutputUtils.defaultConstructor;
 import static atarih.variabledumper.util.OutputUtils.genericConstructor;
-import static atarih.variabledumper.util.OutputUtils.print;
 import static atarih.variabledumper.util.OutputUtils.value;
 
 import java.util.Arrays;
@@ -34,6 +34,7 @@ import org.eclipse.swt.widgets.Shell;
 import org.eclipse.ui.IViewActionDelegate;
 import org.eclipse.ui.IViewPart;
 import org.eclipse.ui.IWorkbenchWindow;
+import org.eclipse.ui.console.MessageConsole;
 import org.eclipse.ui.internal.ViewPluginAction;
 
 import atarih.variabledumper.util.JDIReflectionUtils;
@@ -67,6 +68,8 @@ public class VariableDumperAction implements IViewActionDelegate {
 	IWorkbenchWindow activeWindow = null;
 	
 	IViewPart fview = null;
+	
+	MessageConsole messageConsole = null;
 	
 	@Override
     public void init(IViewPart view) {

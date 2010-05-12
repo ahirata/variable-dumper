@@ -51,8 +51,4 @@ public class OutputUtils {
 		output.setValue(value);
 		return output;
 	}
-	
-	public static void print(Object output) {
-		System.out.println(output.toString());
-	}
 }
