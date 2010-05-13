@@ -12,8 +12,11 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.ResourceBundle;
 import java.util.TreeMap;
 
+import org.eclipse.core.internal.runtime.InternalPlatform;
+import org.eclipse.core.internal.runtime.ResourceTranslator;
 import org.eclipse.debug.core.DebugException;
 import org.eclipse.debug.core.model.IValue;
 import org.eclipse.debug.core.model.IVariable;
@@ -36,6 +39,7 @@ import org.eclipse.ui.IViewPart;
 import org.eclipse.ui.IWorkbenchWindow;
 import org.eclipse.ui.console.MessageConsole;
 import org.eclipse.ui.internal.ViewPluginAction;
+import org.osgi.framework.Bundle;
 
 import atarih.variabledumper.util.JDIReflectionUtils;
 import atarih.variabledumper.util.Output;

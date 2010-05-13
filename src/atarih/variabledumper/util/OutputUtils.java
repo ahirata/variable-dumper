@@ -2,7 +2,6 @@ package atarih.variabledumper.util;
 
 import java.util.Arrays;
 
-
 public class OutputUtils {
 
 	public static Output defaultConstructor(String javaType) {
@@ -11,26 +10,26 @@ public class OutputUtils {
 	
 	public static Output constructor(String javaType, String value) {
 		Output output = new Output();
-		output.setValue("new "+ javaType + "(" + value + ")");
+		output.setValue(MessageUtils.getFormattedString("constructor", javaType, value));
 		return output;
 	}
 
 	public static Output arrayConstructor(String javaType, int size) {
 		Output output = new Output();
-		output.setValue("new "+ javaType.replaceFirst("\\[\\]", "[" + size + "]"));
+		output.setValue(MessageUtils.getFormattedString("array.constructor", javaType.replaceFirst("\\[\\]", ""), String.valueOf(size)));
 		return output;
 	}
 
 	public static Output genericConstructor(String javaType, String value, String... genericTypes) {
 		Output output = new Output();
 		String generics = Arrays.toString(genericTypes).replace("[", "").replace("]", "");
-		output.setValue("new "+ javaType + "<" + generics + ">(" + value + ")");
+		output.setValue(MessageUtils.getFormattedString("generic.constructor", javaType, generics, value));
 		return output;
 	}
 	
 	public static Output genericConstructor(String javaType, String genericType) {
 		Output output = new Output();
-		output.setValue("new "+ javaType + "<" + genericType + ">()");
+		output.setValue(MessageUtils.getFormattedString("generic.constructor", javaType, genericType, ""));
 		return output;
 	}
 	
@@ -38,9 +37,9 @@ public class OutputUtils {
 		Output output = new Output();
 		
 		if (variable.equals("")) {
-			output.setValue(fieldName+ "[" + index + "]");
+			output.setValue(MessageUtils.getFormattedString("array.index", fieldName, String.valueOf(index)));
 		} else {
-			output.setValue(variable + ".get" + Output.capitalize(fieldName) + "()[" + index + "]");
+			output.setValue(MessageUtils.getFormattedString("array.index.variable", variable, Output.capitalize(fieldName), String.valueOf(index)));
 		}
 		
 		return output;
