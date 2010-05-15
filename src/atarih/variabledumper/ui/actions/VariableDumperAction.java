@@ -1,6 +1,6 @@
 package atarih.variabledumper.ui.actions;
 
-import static atarih.variabledumper.ui.console.ConsoleOutput.print;
+import static atarih.variabledumper.ui.console.VariableDumperConsoleOutput.print;
 import static atarih.variabledumper.util.OutputUtils.arrayConstructor;
 import static atarih.variabledumper.util.OutputUtils.arrayIndex;
 import static atarih.variabledumper.util.OutputUtils.constructor;
@@ -12,11 +12,8 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
-import java.util.ResourceBundle;
 import java.util.TreeMap;
 
-import org.eclipse.core.internal.runtime.InternalPlatform;
-import org.eclipse.core.internal.runtime.ResourceTranslator;
 import org.eclipse.debug.core.DebugException;
 import org.eclipse.debug.core.model.IValue;
 import org.eclipse.debug.core.model.IVariable;
@@ -36,11 +33,19 @@ import org.eclipse.jface.viewers.TreeSelection;
 import org.eclipse.swt.widgets.Shell;
 import org.eclipse.ui.IViewActionDelegate;
 import org.eclipse.ui.IViewPart;
+import org.eclipse.ui.IViewReference;
 import org.eclipse.ui.IWorkbenchWindow;
+import org.eclipse.ui.PlatformUI;
+import org.eclipse.ui.console.IConsole;
 import org.eclipse.ui.console.MessageConsole;
+import org.eclipse.ui.console.actions.CloseConsoleAction;
 import org.eclipse.ui.internal.ViewPluginAction;
-import org.osgi.framework.Bundle;
+import org.eclipse.ui.internal.console.ConsoleView;
+import org.eclipse.ui.internal.console.IOConsolePage;
+import org.eclipse.ui.part.IPageBookViewPage;
 
+import atarih.variabledumper.ui.console.VariableDumperConsoleOutput;
+import atarih.variabledumper.ui.console.VariableDumperConsolePageParticipant;
 import atarih.variabledumper.util.JDIReflectionUtils;
 import atarih.variabledumper.util.Output;
 

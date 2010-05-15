@@ -12,7 +12,20 @@
                menubarPath="variableGroup"
                tooltip="Dump It!">               
          </action>
-      </viewerContribution>
+      </viewerContribution>   
     </extension>
+   <extension point="org.eclipse.ui.console.consolePageParticipants">
+      <consolePageParticipant
+            class="atarih.variabledumper.ui.console.VariableDumperConsolePageParticipant"
+            id="atarih.variabledumper.ui.console.variableDumperConsoleParticipant">
+         <enablement>
+            <!-- 
+                TODO - wondering what would happen if other plugins try to grab a MessageConsole too... 
+                       maybe we should create a custom Console...
+            -->
+            <test property="org.eclipse.ui.console.consoleTypeTest" value="org.eclipse.ui.MessageConsole"/>
+         </enablement>
+      </consolePageParticipant>
+   </extension>
 </fragment>
  
