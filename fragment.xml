@@ -18,13 +18,18 @@
             class="atarih.variabledumper.ui.console.VariableDumperConsolePageParticipant"
             id="atarih.variabledumper.ui.console.variableDumperConsoleParticipant">
          <enablement>
-            <!-- 
-                TODO - wondering what would happen if other plugins try to grab a MessageConsole too... 
-                       maybe we should create a custom Console...
-            -->
-            <test property="org.eclipse.ui.console.consoleTypeTest" value="org.eclipse.ui.MessageConsole"/>
+            <test property="atarih.variabledumper.ui.console.consoleNameTest" value="variable-dumper-console"/>
          </enablement>
       </consolePageParticipant>
+   </extension>
+   <extension
+        point="org.eclipse.core.expressions.propertyTesters">
+        <propertyTester
+             namespace="atarih.variabledumper.ui.console"
+             type="org.eclipse.ui.console.IConsole"
+             class="atarih.variabledumper.ui.console.ConsoleNamePropertyTester"
+             properties="consoleNameTest"
+             id="atarih.variabledumper.ui.console.ConsoleNamePropertyTester"/>
    </extension>
 </fragment>
  
