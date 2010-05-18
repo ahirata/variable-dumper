@@ -18,6 +18,7 @@ import org.eclipse.debug.core.DebugException;
 import org.eclipse.debug.core.model.IValue;
 import org.eclipse.debug.core.model.IVariable;
 import org.eclipse.jdi.internal.ArrayReferenceImpl;
+import org.eclipse.jdi.internal.LongValueImpl;
 import org.eclipse.jdi.internal.ObjectReferenceImpl;
 import org.eclipse.jdt.internal.debug.core.model.JDIArrayValue;
 import org.eclipse.jdt.internal.debug.core.model.JDIDebugTarget;
@@ -33,19 +34,10 @@ import org.eclipse.jface.viewers.TreeSelection;
 import org.eclipse.swt.widgets.Shell;
 import org.eclipse.ui.IViewActionDelegate;
 import org.eclipse.ui.IViewPart;
-import org.eclipse.ui.IViewReference;
 import org.eclipse.ui.IWorkbenchWindow;
-import org.eclipse.ui.PlatformUI;
-import org.eclipse.ui.console.IConsole;
 import org.eclipse.ui.console.MessageConsole;
-import org.eclipse.ui.console.actions.CloseConsoleAction;
 import org.eclipse.ui.internal.ViewPluginAction;
-import org.eclipse.ui.internal.console.ConsoleView;
-import org.eclipse.ui.internal.console.IOConsolePage;
-import org.eclipse.ui.part.IPageBookViewPage;
 
-import atarih.variabledumper.ui.console.VariableDumperConsoleOutput;
-import atarih.variabledumper.ui.console.VariableDumperConsolePageParticipant;
 import atarih.variabledumper.util.JDIReflectionUtils;
 import atarih.variabledumper.util.Output;
 
@@ -54,11 +46,12 @@ public class VariableDumperAction implements IViewActionDelegate {
 	private static final List<String> TYPES = Arrays.asList(new String[] {
 			"java.lang.Boolean", 
 			"java.lang.Byte", 
+			"java.lang.Character",
 			"java.lang.Short", 
 			"java.lang.Integer", 
 			"java.lang.Long", 
 			"java.lang.Float", 
-			"java.lang.Double", 
+			"java.lang.Double"
 	});
 
 	private static final Map<String, String> COLLECTION_TYPES = new TreeMap<String, String>();
@@ -209,6 +202,9 @@ public class VariableDumperAction implements IViewActionDelegate {
 		} else if (value.getClass().equals(JDIPrimitiveValue.class) || javaType.equals("java.lang.String")) {
 			handlePrimitive(variableName, fieldName, javaType, value);
 			
+		} else if (javaType.equals("java.util.Date")) {
+			handleDate(variableName, fieldName, javaType, value);
+			
 		} else if (value.getClass().equals(JDIArrayValue.class)) {
 			handleArray(variableName, fieldName, javaType, value);
 			
@@ -226,6 +222,20 @@ public class VariableDumperAction implements IViewActionDelegate {
 		}
     }
 		
+	private void handleDate(String variableName, String fieldName, String javaType, IValue value) {
+		
+		org.eclipse.jdi.internal.LongValueImpl timeMillis = (LongValueImpl) JDIReflectionUtils.invokeMethod(value, "getTime", null);
+		String dateValue = timeMillis.value() + "L";
+		
+		if (variableName.equals("")) {
+			print(constructor(javaType, dateValue).assignedTo(javaType, fieldName));
+		} else if (fieldName.equals("")){
+			print(constructor(javaType, dateValue).assignedTo(variableName));
+		} else {
+			print(constructor(javaType, dateValue).setTo(variableName, fieldName));
+		}
+	}
+	
 	private void handleEnum(String variableName, String fieldName, String javaType, IValue value) throws DebugException {
 		String enumValue = null;
 		
@@ -303,10 +313,9 @@ public class VariableDumperAction implements IViewActionDelegate {
 			if (variable instanceof JDIVariable && variable.getName().equals("value")) {
 				if (objectValue.getReferenceTypeName().equals("java.lang.Character")) {
 					value = "'" + variable.getValue() + "'";
-					
+
 				} else {
 					value = "\"" + variable.getValue() + "\"";
-					
 				}
 				break;	
 			}
@@ -319,16 +328,15 @@ public class VariableDumperAction implements IViewActionDelegate {
 		 
 		if (javaType.equals("char")) {
 			value = "'" + value + "'";
-			
 		} else  if (javaType.equals("long")) {
 			value += "L";
-			
+
 		} else if (javaType.equals("float")) {
 			value += "F";
-			
+
 		} else if (javaType.equals("double")) {
 			value += "D";
-			
+
 		}
 		
 		value = "(" + javaType + ")" + value;
