@@ -390,7 +390,7 @@ public class VariableDumperAction implements IViewActionDelegate {
 				localArrayVariableName = variableName + Output.capitalize(fieldName) + i;
 				
 			}
-			handleTypes(localArrayVariableName, "", arrayType, variables[i].getValue());
+			handleTypes("", localArrayVariableName, arrayType, variables[i].getValue());
 			print(value(localArrayVariableName).assignedTo(arrayIndex(variableName, fieldName, i)));
 		}
 	}
