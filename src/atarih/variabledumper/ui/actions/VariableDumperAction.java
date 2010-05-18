@@ -18,7 +18,9 @@ import org.eclipse.debug.core.DebugException;
 import org.eclipse.debug.core.model.IValue;
 import org.eclipse.debug.core.model.IVariable;
 import org.eclipse.jdi.internal.ArrayReferenceImpl;
+import org.eclipse.jdi.internal.LongValueImpl;
 import org.eclipse.jdi.internal.ObjectReferenceImpl;
+import org.eclipse.jdi.internal.StringReferenceImpl;
 import org.eclipse.jdt.internal.debug.core.model.JDIArrayValue;
 import org.eclipse.jdt.internal.debug.core.model.JDIDebugTarget;
 import org.eclipse.jdt.internal.debug.core.model.JDINullValue;
@@ -45,11 +47,12 @@ public class VariableDumperAction implements IViewActionDelegate {
 	private static final List<String> TYPES = Arrays.asList(new String[] {
 			"java.lang.Boolean", 
 			"java.lang.Byte", 
+			"java.lang.Character",
 			"java.lang.Short", 
 			"java.lang.Integer", 
 			"java.lang.Long", 
 			"java.lang.Float", 
-			"java.lang.Double", 
+			"java.lang.Double"
 	});
 
 	private static final Map<String, String> COLLECTION_TYPES = new TreeMap<String, String>();
@@ -200,6 +203,12 @@ public class VariableDumperAction implements IViewActionDelegate {
 		} else if (value.getClass().equals(JDIPrimitiveValue.class) || javaType.equals("java.lang.String")) {
 			handlePrimitive(variableName, fieldName, javaType, value);
 			
+		} else if (javaType.equals("java.math.BigDecimal") || javaType.equals("java.math.BigInteger")) { 
+			handleNumber(variableName, fieldName, javaType, value);
+			
+		} else if (javaType.equals("java.util.Date")) {
+			handleDate(variableName, fieldName, javaType, value);
+			
 		} else if (value.getClass().equals(JDIArrayValue.class)) {
 			handleArray(variableName, fieldName, javaType, value);
 			print(value(""));
@@ -221,7 +230,33 @@ public class VariableDumperAction implements IViewActionDelegate {
 			
 		}
     }
+
+	private void handleNumber(String variableName, String fieldName, String javaType, IValue value) {
+		StringReferenceImpl stringValue = (StringReferenceImpl) JDIReflectionUtils.invokeMethod(value, "toString", null);
+		String numberValue = "\"" + stringValue.value() + "\"";
 		
+		if (variableName.equals("")) {
+			print(constructor(javaType, numberValue).assignedTo(javaType, fieldName));
+		} else if (fieldName.equals("")){
+			print(constructor(javaType, numberValue).assignedTo(variableName));
+		} else {
+			print(constructor(javaType, numberValue).setTo(variableName, fieldName));
+		}
+	}
+	private void handleDate(String variableName, String fieldName, String javaType, IValue value) {
+		
+		org.eclipse.jdi.internal.LongValueImpl timeMillis = (LongValueImpl) JDIReflectionUtils.invokeMethod(value, "getTime", null);
+		String dateValue = timeMillis.value() + "L";
+		
+		if (variableName.equals("")) {
+			print(constructor(javaType, dateValue).assignedTo(javaType, fieldName));
+		} else if (fieldName.equals("")){
+			print(constructor(javaType, dateValue).assignedTo(variableName));
+		} else {
+			print(constructor(javaType, dateValue).setTo(variableName, fieldName));
+		}
+	}
+	
 	private void handleEnum(String variableName, String fieldName, String javaType, IValue value) throws DebugException {
 		String enumValue = null;
 		
@@ -297,7 +332,12 @@ public class VariableDumperAction implements IViewActionDelegate {
 		String value = null;
 		for (IVariable variable : objectValue.getVariables()) {
 			if (variable instanceof JDIVariable && variable.getName().equals("value")) {
-				value = "\"" + variable.getValue() + "\"";
+				if (objectValue.getReferenceTypeName().equals("java.lang.Character")) {
+					value = "'" + variable.getValue() + "'";
+
+				} else {
+					value = "\"" + variable.getValue() + "\"";
+				}
 				break;	
 			}
 		}
@@ -305,7 +345,22 @@ public class VariableDumperAction implements IViewActionDelegate {
 	}
 
 	private void handlePrimitive(String variableName, String fieldName, String javaType, IValue fieldValue) throws DebugException {
-		String value = "(" + javaType +  ")"+ fieldValue;
+		String value = fieldValue.getValueString();
+		 
+		if (javaType.equals("char")) {
+			value = "'" + value + "'";
+		} else  if (javaType.equals("long")) {
+			value += "L";
+
+		} else if (javaType.equals("float")) {
+			value += "F";
+
+		} else if (javaType.equals("double")) {
+			value += "D";
+
+		}
+		
+		value = "(" + javaType + ")" + value;
 		if (variableName.equals("")) {
 			print(value(value).assignedTo(javaType, fieldName));
 		} else if (fieldName.equals("")) {
@@ -340,7 +395,7 @@ public class VariableDumperAction implements IViewActionDelegate {
 				localArrayVariableName = variableName + Output.capitalize(fieldName) + i;
 				
 			}
-			handleTypes(localArrayVariableName, "", arrayType, variables[i].getValue());
+			handleTypes("", localArrayVariableName, arrayType, variables[i].getValue());
 			print(value(localArrayVariableName).assignedTo(arrayIndex(variableName, fieldName, i)));
 		}
 	}
