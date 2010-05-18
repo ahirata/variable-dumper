@@ -9,34 +9,36 @@ public class Output {
 	}
 
 	public Output assignedTo(String javaType, String variableName) {
-		this.value = javaType + " " + variableName + " = " + this.value + ";";
+		this.value = MessageUtils.getFormattedString("assignment.to", javaType, variableName, this.value);
 		return this;
 	}
 	
 	public Output assignedTo(String javaType, String genericType, String variableName) {
-		this.value = javaType + "<" + genericType + "> " + variableName + " = " + this.value + ";";
+		this.value = MessageUtils.getFormattedString("assignment.to.generic", javaType, genericType, variableName, this.value); 
 		return this;
 	}
+	
 	public Output assignedTo(String javaType, String genericKey, String genericValue, String variableName) {
-		this.value = javaType + "<" + genericKey + ", " + genericValue +  "> " + variableName + " = " + this.value + ";";
+		this.value = MessageUtils.getFormattedString("assignment.to.map.declaration", javaType, genericKey, genericValue, variableName, this.value);
 		return this;
 	}
+	
 	public Output assignedTo(Output output) {
 		return assignedTo(output.value);
 	}
 	
 	public Output setTo(String variableName, String fieldName) {
-		this.value = variableName + ".set" + capitalize(fieldName) + "(" + value + ");";
+		this.value = MessageUtils.getFormattedString("set.to", variableName, capitalize(fieldName), this.value); 
 		return this;
 	}
 
 	public Output addTo(String variableName) {
-		this.value = variableName + ".add(" + this.value + ");";
+		this.value = MessageUtils.getFormattedString("add.to", variableName, this.value);
 		return this;
 	}
 
 	public Output putTo(String variableName) {
-		this.value = variableName + ".put(" + this.value + ");";
+		this.value = MessageUtils.getFormattedString("put.to", variableName, this.value); 
 		return this;
 	}
 	

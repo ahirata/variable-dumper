@@ -33,19 +33,10 @@ import org.eclipse.jface.viewers.TreeSelection;
 import org.eclipse.swt.widgets.Shell;
 import org.eclipse.ui.IViewActionDelegate;
 import org.eclipse.ui.IViewPart;
-import org.eclipse.ui.IViewReference;
 import org.eclipse.ui.IWorkbenchWindow;
-import org.eclipse.ui.PlatformUI;
-import org.eclipse.ui.console.IConsole;
 import org.eclipse.ui.console.MessageConsole;
-import org.eclipse.ui.console.actions.CloseConsoleAction;
 import org.eclipse.ui.internal.ViewPluginAction;
-import org.eclipse.ui.internal.console.ConsoleView;
-import org.eclipse.ui.internal.console.IOConsolePage;
-import org.eclipse.ui.part.IPageBookViewPage;
 
-import atarih.variabledumper.ui.console.VariableDumperConsoleOutput;
-import atarih.variabledumper.ui.console.VariableDumperConsolePageParticipant;
 import atarih.variabledumper.util.JDIReflectionUtils;
 import atarih.variabledumper.util.Output;
 
@@ -156,7 +147,6 @@ public class VariableDumperAction implements IViewActionDelegate {
 							
 							// should we do something about inner classes other than static ones?
 							comparator = comparator.replace("$", ".");
-							
 						}
 					}
 					if (variableName.equals("")) {
@@ -183,6 +173,7 @@ public class VariableDumperAction implements IViewActionDelegate {
             
 			String keyVariableName = localVariableName + "key" + i ;
 			String valueVariableName = localVariableName + "value" + i ;
+
 			try {
 	            handleTypes("", keyVariableName, genericKey, entryKey);
 	            handleTypes("", valueVariableName, genericValue, entryValue);
@@ -211,18 +202,23 @@ public class VariableDumperAction implements IViewActionDelegate {
 			
 		} else if (value.getClass().equals(JDIArrayValue.class)) {
 			handleArray(variableName, fieldName, javaType, value);
+			print(value(""));
 			
 		} else if (isEnum(value)) {
 			handleEnum(variableName, fieldName, javaType, value);
 		    				
 		} else if (value.getClass().equals(JDIObjectValue.class) && (this.isJavaInternalClass(javaType) && Collection.class.isAssignableFrom(Class.forName(javaType)))) {
 			handleList(variableName, fieldName, javaType, value);
+			print(value(""));
 			
 		} else if (value.getClass().equals(JDIObjectValue.class) && (this.isJavaInternalClass(javaType) && Map.class.isAssignableFrom(Class.forName(javaType)))) {
 			handleMap(variableName, fieldName, javaType, value);
+			print(value(""));
 			
 		} else {
 			handleObject(variableName, fieldName, javaType, value);
+			print(value(""));
+			
 		}
     }
 		
