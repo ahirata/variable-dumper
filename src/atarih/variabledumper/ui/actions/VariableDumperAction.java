@@ -301,7 +301,13 @@ public class VariableDumperAction implements IViewActionDelegate {
 		String value = null;
 		for (IVariable variable : objectValue.getVariables()) {
 			if (variable instanceof JDIVariable && variable.getName().equals("value")) {
-				value = "\"" + variable.getValue() + "\"";
+				if (objectValue.getReferenceTypeName().equals("java.lang.Character")) {
+					value = "'" + variable.getValue() + "'";
+					
+				} else {
+					value = "\"" + variable.getValue() + "\"";
+					
+				}
 				break;	
 			}
 		}
@@ -309,7 +315,23 @@ public class VariableDumperAction implements IViewActionDelegate {
 	}
 
 	private void handlePrimitive(String variableName, String fieldName, String javaType, IValue fieldValue) throws DebugException {
-		String value = "(" + javaType +  ")"+ fieldValue;
+		String value = fieldValue.getValueString();
+		 
+		if (javaType.equals("char")) {
+			value = "'" + value + "'";
+			
+		} else  if (javaType.equals("long")) {
+			value += "L";
+			
+		} else if (javaType.equals("float")) {
+			value += "F";
+			
+		} else if (javaType.equals("double")) {
+			value += "D";
+			
+		}
+		
+		value = "(" + javaType + ")" + value;
 		if (variableName.equals("")) {
 			print(value(value).assignedTo(javaType, fieldName));
 		} else if (fieldName.equals("")) {
