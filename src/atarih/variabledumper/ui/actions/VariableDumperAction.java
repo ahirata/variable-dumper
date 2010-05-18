@@ -20,6 +20,7 @@ import org.eclipse.debug.core.model.IVariable;
 import org.eclipse.jdi.internal.ArrayReferenceImpl;
 import org.eclipse.jdi.internal.LongValueImpl;
 import org.eclipse.jdi.internal.ObjectReferenceImpl;
+import org.eclipse.jdi.internal.StringReferenceImpl;
 import org.eclipse.jdt.internal.debug.core.model.JDIArrayValue;
 import org.eclipse.jdt.internal.debug.core.model.JDIDebugTarget;
 import org.eclipse.jdt.internal.debug.core.model.JDINullValue;
@@ -202,6 +203,9 @@ public class VariableDumperAction implements IViewActionDelegate {
 		} else if (value.getClass().equals(JDIPrimitiveValue.class) || javaType.equals("java.lang.String")) {
 			handlePrimitive(variableName, fieldName, javaType, value);
 			
+		} else if (javaType.equals("java.math.BigDecimal") || javaType.equals("java.math.BigInteger")) { 
+			handleNumber(variableName, fieldName, javaType, value);
+			
 		} else if (javaType.equals("java.util.Date")) {
 			handleDate(variableName, fieldName, javaType, value);
 			
@@ -221,7 +225,19 @@ public class VariableDumperAction implements IViewActionDelegate {
 			handleObject(variableName, fieldName, javaType, value);
 		}
     }
+
+	private void handleNumber(String variableName, String fieldName, String javaType, IValue value) {
+		StringReferenceImpl stringValue = (StringReferenceImpl) JDIReflectionUtils.invokeMethod(value, "toString", null);
+		String numberValue = "\"" + stringValue.value() + "\"";
 		
+		if (variableName.equals("")) {
+			print(constructor(javaType, numberValue).assignedTo(javaType, fieldName));
+		} else if (fieldName.equals("")){
+			print(constructor(javaType, numberValue).assignedTo(variableName));
+		} else {
+			print(constructor(javaType, numberValue).setTo(variableName, fieldName));
+		}
+	}
 	private void handleDate(String variableName, String fieldName, String javaType, IValue value) {
 		
 		org.eclipse.jdi.internal.LongValueImpl timeMillis = (LongValueImpl) JDIReflectionUtils.invokeMethod(value, "getTime", null);
