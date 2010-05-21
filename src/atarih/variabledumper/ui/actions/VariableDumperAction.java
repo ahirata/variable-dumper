@@ -340,7 +340,7 @@ public class VariableDumperAction implements IViewActionDelegate {
 	}
 
 	private void handlePrimitive(String variableName, String fieldName, String javaType, IValue fieldValue) throws DebugException {
-		String value = fieldValue.getValueString();
+		String value = fieldValue.toString();
 		 
 		if (javaType.equals("char")) {
 			value = "'" + value + "'";
