@@ -114,7 +114,6 @@ public class VariableDumperAction implements IViewActionDelegate {
 		handleTypes(variableName, fieldName, javaType, value);
     }
 
-	// TODO - under construction...
 	private void handleMap(String variableName, String fieldName, String javaType, IValue value) {
 
 		JDIThread thread = JDIReflectionUtils.getUnderlyingThread(value); 
@@ -316,62 +315,62 @@ public class VariableDumperAction implements IViewActionDelegate {
 	    }
     }
 
-	private void handleWrapper(String variableName, String fieldName, String javaType, IValue fieldValue) throws DebugException {
-		String value = getWrapperValue(fieldValue);
+	private void handleWrapper(String variableName, String fieldName, String javaType, IValue value) throws DebugException {
+		String wrapperValue = getWrapperValue(value);
 		
 		if (variableName.equals("")) {
-			print(constructor(javaType, value).assignedTo(javaType, fieldName));
+			print(constructor(javaType, wrapperValue).assignedTo(javaType, fieldName));
 		} else if (fieldName.equals("")){
-			print(constructor(javaType, value).assignedTo(variableName));
+			print(constructor(javaType, wrapperValue).assignedTo(variableName));
 		} else {
-			print(constructor(javaType, value).setTo(variableName, fieldName));
+			print(constructor(javaType, wrapperValue).setTo(variableName, fieldName));
 		}
 	}
 	
-	private String getWrapperValue(IValue objectValue) throws DebugException {
-		String value = null;
-		for (IVariable variable : objectValue.getVariables()) {
+	private String getWrapperValue(IValue value) throws DebugException {
+		String wrapperValue = null;
+		for (IVariable variable : value.getVariables()) {
 			if (variable instanceof JDIVariable && variable.getName().equals("value")) {
-				if (objectValue.getReferenceTypeName().equals("java.lang.Character")) {
-					value = "'" + variable.getValue() + "'";
+				if (value.getReferenceTypeName().equals("java.lang.Character")) {
+					wrapperValue = "'" + variable.getValue() + "'";
 
 				} else {
-					value = "\"" + variable.getValue() + "\"";
+					wrapperValue = "\"" + variable.getValue() + "\"";
 				}
 				break;	
 			}
 		}
-		return value;
+		return wrapperValue;
 	}
 
-	private void handlePrimitive(String variableName, String fieldName, String javaType, IValue fieldValue) throws DebugException {
-		String value = fieldValue.toString();
+	private void handlePrimitive(String variableName, String fieldName, String javaType, IValue value) throws DebugException {
+		String primitiveValue = value.toString();
 		 
 		if (javaType.equals("char")) {
-			value = "'" + value + "'";
+			primitiveValue = "'" + primitiveValue + "'";
 		} else  if (javaType.equals("long")) {
-			value += "L";
+			primitiveValue += "L";
 
 		} else if (javaType.equals("float")) {
-			value += "F";
+			primitiveValue += "F";
 
 		} else if (javaType.equals("double")) {
-			value += "D";
+			primitiveValue += "D";
 
 		}
 		
-		value = "(" + javaType + ")" + value;
+		primitiveValue = "(" + javaType + ")" + primitiveValue;
 		if (variableName.equals("")) {
-			print(value(value).assignedTo(javaType, fieldName));
+			print(value(primitiveValue).assignedTo(javaType, fieldName));
 		} else if (fieldName.equals("")) {
-			print(value(value).assignedTo(variableName));
+			print(value(primitiveValue).assignedTo(variableName));
 		} else {
-			print(value(value).setTo(variableName, fieldName));
+			print(value(primitiveValue).setTo(variableName, fieldName));
 		}
 	}
 	
-	private void handleArray(String variableName, String fieldName, String javaType, IValue fieldValue) throws DebugException, ClassNotFoundException {
-		IVariable[] variables = fieldValue.getVariables();
+	private void handleArray(String variableName, String fieldName, String javaType, IValue value) throws DebugException, ClassNotFoundException {
+		IVariable[] variables = value.getVariables();
 
 		String arrayType = javaType.replaceFirst("\\[\\]", "");
 		
