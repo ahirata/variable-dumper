@@ -150,7 +150,6 @@ public class VariableDumperAction implements IViewActionDelegate {
 							
 							// should we do something about inner classes other than static ones?
 							comparator = comparator.replace("$", ".");
-							
 						}
 					}
 					if (variableName.equals("")) {
@@ -177,6 +176,7 @@ public class VariableDumperAction implements IViewActionDelegate {
             
 			String keyVariableName = localVariableName + "key" + i ;
 			String valueVariableName = localVariableName + "value" + i ;
+
 			try {
 	            handleTypes("", keyVariableName, genericKey, entryKey);
 	            handleTypes("", valueVariableName, genericValue, entryValue);
@@ -211,18 +211,23 @@ public class VariableDumperAction implements IViewActionDelegate {
 			
 		} else if (value.getClass().equals(JDIArrayValue.class)) {
 			handleArray(variableName, fieldName, javaType, value);
+			print(value(""));
 			
 		} else if (isEnum(value)) {
 			handleEnum(variableName, fieldName, javaType, value);
 		    				
 		} else if (value.getClass().equals(JDIObjectValue.class) && (this.isJavaInternalClass(javaType) && Collection.class.isAssignableFrom(Class.forName(javaType)))) {
 			handleList(variableName, fieldName, javaType, value);
+			print(value(""));
 			
 		} else if (value.getClass().equals(JDIObjectValue.class) && (this.isJavaInternalClass(javaType) && Map.class.isAssignableFrom(Class.forName(javaType)))) {
 			handleMap(variableName, fieldName, javaType, value);
+			print(value(""));
 			
 		} else {
 			handleObject(variableName, fieldName, javaType, value);
+			print(value(""));
+			
 		}
     }
 
