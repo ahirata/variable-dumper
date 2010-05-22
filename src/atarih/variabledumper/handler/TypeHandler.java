@@ -73,7 +73,8 @@ public class TypeHandler {
 		if (existingVariable != null) {
 			outputValue(variableName, fieldName, javaType, existingVariable);
 		} else {
-			if (!value.getClass().equals(JDINullValue.class) && !value.getClass().equals(JDIPrimitiveValue.class) && !javaType.equals("java.lang.String")) {
+			// hold a cache except for null values...
+			if (!value.getClass().equals(JDINullValue.class)) {
 				if (variableName.equals("")) {
 					mapVariables.put(value.toString(), fieldName);
 
@@ -391,21 +392,21 @@ public class TypeHandler {
 	}
 	
 	private String getWrapperValue(IValue value) throws DebugException {
-		String wrapperValue = value.toString();
-		if (!value.getReferenceTypeName().equals("java.lang.String")) {
-			for (IVariable variable : value.getVariables()) {
-				if (variable instanceof JDIVariable && variable.getName().equals("value")) {
-					if (value.getReferenceTypeName().equals("java.lang.Character")) {
-						wrapperValue = "'" + variable.getValue() + "'";
+		String wrapperValue = null;
+		
+		for (IVariable variable : value.getVariables()) {
+			if (variable instanceof JDIVariable && variable.getName().equals("value")) {
+				if (value.getReferenceTypeName().equals("java.lang.Character")) {
+					wrapperValue = "'" + variable.getValue() + "'";
 
-					} else {
-						wrapperValue = "\"" + variable.getValue() + "\"";
-					}
-
-					break;	
+				} else {
+					wrapperValue = "\"" + variable.getValue() + "\"";
 				}
+				
+				break;	
 			}
 		}
+		
 		return wrapperValue;
 	}
 	
