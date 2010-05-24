@@ -15,13 +15,6 @@ import atarih.variabledumper.handler.TypeHandler;
 
 public class VariableDumperAction implements IViewActionDelegate {
 	
-	// just a test...
-	IWorkbenchWindow activeWindow = null;
-	
-	IViewPart fview = null;
-	
-	MessageConsole messageConsole = null;
-	
 	@Override
     public void init(IViewPart view) {	}
 	
@@ -50,7 +43,5 @@ public class VariableDumperAction implements IViewActionDelegate {
     }
 
 	@Override
-    public void selectionChanged(IAction action, ISelection selection) {
-	    // TODO Auto-generated method stub
-    }
+    public void selectionChanged(IAction action, ISelection selection) { }
 }

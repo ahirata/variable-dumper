@@ -13,7 +13,6 @@ import org.eclipse.jdt.debug.core.IJavaDebugTarget;
 import org.eclipse.jdt.debug.core.IJavaThread;
 import org.eclipse.jdt.internal.debug.core.model.JDIObjectValue;
 import org.eclipse.jdt.internal.debug.core.model.JDIThread;
-import org.eclipse.jdt.internal.debug.core.model.JDIVariable;
 import org.eclipse.jdt.internal.debug.ui.JDIModelPresentation;
 
 import com.sun.jdi.ClassNotLoadedException;
@@ -24,7 +23,8 @@ import com.sun.jdi.ObjectReference;
 // TODO - must do some major refactoring...
 public class JDIReflectionUtils {
 
-	public static Method getMethod(ClassTypeImpl clazz, String methodName, Object[] args) {
+	@SuppressWarnings("unchecked")
+    public static Method getMethod(ClassTypeImpl clazz, String methodName, Object[] args) {
 		Method method = null;
 		
 	    for (Method methodItem : (List<Method>) clazz.methodsByName(methodName)) {
@@ -57,12 +57,8 @@ public class JDIReflectionUtils {
 		JDIThread jdiThread = getUnderlyingThread(value);
 		JDIObjectValue objectValue = null;
         
-//		try {
-	        objectValue = (JDIObjectValue) value;
-//        } catch (DebugException e1) {
-//	        // TODO Auto-generated catch block
-//	        e1.printStackTrace();
-//        }
+		objectValue = (JDIObjectValue) value;
+
         ObjectReference object = objectValue.getUnderlyingObject();
 
 		Object result = invokeMethod(jdiThread, object, methodName, values);
@@ -70,7 +66,8 @@ public class JDIReflectionUtils {
 		return result;
 	}
 
-	public static Object invokeMethod(JDIThread jdiThread, ObjectReference object, String methodName, Object[] values) {
+	@SuppressWarnings("unchecked")
+    public static Object invokeMethod(JDIThread jdiThread, ObjectReference object, String methodName, Object[] values) {
 	    Method method = getMethod((ClassTypeImpl) object.referenceType(), methodName, values);
 		
 		Class<?>[] reflectTypes = new Class[] {
@@ -81,16 +78,11 @@ public class JDIReflectionUtils {
 				boolean.class
 		};
 		
-		List valuesList = null;
-		if (values == null) {
-			valuesList = new ArrayList();
-		} else {
-			valuesList = Arrays.asList(values);
-		}
+		List valuesList = values == null ? new ArrayList() : Arrays.asList(values);
+
 		Object[] reflectObjects = new Object[] {
 				null, object, method, valuesList,  Boolean.FALSE
 		};
-		
 		
 		Object result = null;
 		
