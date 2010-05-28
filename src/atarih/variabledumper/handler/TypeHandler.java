@@ -9,6 +9,8 @@ import java.util.Collection;
 import java.util.Map;
 import java.util.TreeMap;
 
+import org.eclipse.core.runtime.IProgressMonitor;
+import org.eclipse.core.runtime.Status;
 import org.eclipse.debug.core.DebugException;
 import org.eclipse.debug.core.model.IValue;
 import org.eclipse.debug.core.model.IVariable;
@@ -26,237 +28,261 @@ import org.eclipse.jdt.internal.debug.core.model.JDIValue;
 import org.eclipse.jdt.internal.debug.core.model.JDIVariable;
 
 import atarih.variabledumper.util.JDIReflectionUtils;
-import atarih.variabledumper.util.ValueHelper;
 import atarih.variabledumper.util.Output;
 import atarih.variabledumper.util.OutputUtils;
+import atarih.variabledumper.util.ValueHelper;
 
 public class TypeHandler {
 
-	private final Map<String, String> collectionTypes = new TreeMap<String, String>(); {
-		collectionTypes.put("java.util.List", "java.util.ArrayList");
-		collectionTypes.put("java.util.Set", "java.util.HashSet");
-		collectionTypes.put("java.util.Collection", "java.util.ArrayList");
-	}
+    private IProgressMonitor monitor;
 
-	private TreeMap<String, String> mapVariables = new TreeMap<String, String>();
+    private final Map<String, String> collectionTypes = new TreeMap<String, String>(); {
+        collectionTypes.put("java.util.List", "java.util.ArrayList");
+        collectionTypes.put("java.util.Set", "java.util.HashSet");
+        collectionTypes.put("java.util.Collection", "java.util.ArrayList");
+    }
 
-	public void handleVariable(String variableName, JDIVariable variable) throws DebugException, ClassNotFoundException {
-		IValue value = variable.getValue();
-		String javaType = value.getReferenceTypeName();
-		
-		if (!javaType.equals("null") || javaType.contains("$")) {
-			javaType = variable.getReferenceTypeName();
-		}
-		
-		String fieldName = variable.getName();
+    private TreeMap<String, String> mapVariables = new TreeMap<String, String>();
 
-		handleTypes(variableName, fieldName, javaType, value);
-	}
+    public void handleVariable(String variableName, JDIVariable variable) throws DebugException, ClassNotFoundException {
+        IValue value = variable.getValue();
+        String javaType = value.getReferenceTypeName();
 
-	private void handleTypes(String variableName, String fieldName, String javaType, IValue value) throws DebugException, ClassNotFoundException {
+        if (!javaType.equals("null") || javaType.contains("$")) {
+            javaType = variable.getReferenceTypeName();
+        }
 
-		String existingVariable = mapVariables.get(value.toString());
+        String fieldName = variable.getName();
 
-		if (existingVariable != null) {
-			OutputUtils.outputValue(variableName, fieldName, javaType, existingVariable);
-		} else {
+        handleTypes(variableName, fieldName, javaType, value);
+    }
 
-			if (!value.getClass().equals(JDINullValue.class) && !value.getClass().equals(JDIPrimitiveValue.class) && !javaType.equals("java.lang.String")) {
-				if (variableName.equals("")) {
-					mapVariables.put(value.toString(), fieldName);
+    private void handleTypes(String variableName, String fieldName, String javaType, IValue value) throws DebugException, ClassNotFoundException {
 
-				} else if (fieldName.equals("")) {
-					mapVariables.put(value.toString(), variableName);
+        if (!monitor.isCanceled()) {
 
-				} else {
-					mapVariables.put(value.toString(), variableName+Output.capitalize(fieldName));
-				}
-			}
+            String existingVariable = mapVariables.get(value.toString());
 
-			if (value.getClass().equals(JDINullValue.class)) {
-				handleNullValue(variableName, fieldName, javaType);
+            if (existingVariable != null) {
+                OutputUtils.outputValue(variableName, fieldName, javaType, existingVariable);
+            } else {
 
-			} else if (value.getClass().equals(JDIPrimitiveValue.class) || javaType.equals("java.lang.String")) {
-				handlePrimitive(variableName, fieldName, javaType, value);
+                if (!value.getClass().equals(JDINullValue.class) && !value.getClass().equals(JDIPrimitiveValue.class) && !javaType.equals("java.lang.String")) {
+                    if (variableName.equals("")) {
+                        mapVariables.put(value.toString(), fieldName);
 
-			} else if (ValueHelper.isWrapper(value.getReferenceTypeName())) {
-				handleWrapper(variableName, fieldName, javaType, value);
+                    } else if (fieldName.equals("")) {
+                        mapVariables.put(value.toString(), variableName);
 
-			} else if (javaType.equals("java.lang.Number") || javaType.equals("java.math.BigDecimal") || javaType.equals("java.math.BigInteger")) { 
-				handleNumber(variableName, fieldName, javaType, value);
+                    } else {
+                        mapVariables.put(value.toString(), variableName+Output.capitalize(fieldName));
+                    }
+                }
 
-			} else if (javaType.equals("java.util.Date") || javaType.equals("java.sql.Date")) {
-				handleDate(variableName, fieldName, javaType, value);
+                if (value.getClass().equals(JDINullValue.class)) {
+                    handleNullValue(variableName, fieldName, javaType);
 
-			} else if (ValueHelper.isEnum(value)) {
-				handleEnum(variableName, fieldName, javaType, value);
+                } else if (value.getClass().equals(JDIPrimitiveValue.class) || javaType.equals("java.lang.String")) {
+                    handlePrimitive(variableName, fieldName, javaType, value);
 
-			} else if (value.getClass().equals(JDIArrayValue.class)) {
-				handleArray(variableName, fieldName, javaType, value);
-				print(value(""));
+                } else if (ValueHelper.isWrapper(value.getReferenceTypeName())) {
+                    handleWrapper(variableName, fieldName, javaType, value);
 
-			} else if (value.getClass().equals(JDIObjectValue.class) && (ValueHelper.isJavaUtilClass(javaType) && Collection.class.isAssignableFrom(Class.forName(value.getReferenceTypeName().substring(0, value.getReferenceTypeName().indexOf("<")))))) {
-				handleList(variableName, fieldName, javaType, value);
-				print(value(""));
+                } else if (javaType.equals("java.lang.Number") || javaType.equals("java.math.BigDecimal") || javaType.equals("java.math.BigInteger")) {
+                    handleNumber(variableName, fieldName, javaType, value);
 
-			} else if (value.getClass().equals(JDIObjectValue.class) && (ValueHelper.isJavaUtilClass(javaType) && Map.class.isAssignableFrom(Class.forName(value.getReferenceTypeName().substring(0, value.getReferenceTypeName().indexOf("<")))))) {
-				handleMap(variableName, fieldName, javaType, value);
-				print(value(""));
+                } else if (javaType.equals("java.util.Date") || javaType.equals("java.sql.Date")) {
+                    handleDate(variableName, fieldName, javaType, value);
 
-			} else {
-				handleObject(variableName, fieldName, javaType, value);
-				print(value(""));
-			}
-		}   
-	}
+                } else if (ValueHelper.isEnum(value)) {
+                    handleEnum(variableName, fieldName, javaType, value);
 
-	private void handleNullValue(String variableName, String fieldName, String javaType) {
-		OutputUtils.outputValue(variableName, fieldName, javaType, "null");
-	}
+                } else if (value.getClass().equals(JDIArrayValue.class)) {
+                    handleArray(variableName, fieldName, javaType, value);
+                    print(value(""));
 
-	private void handlePrimitive(String variableName, String fieldName, String javaType, IValue value) throws DebugException {
-		String primitiveValue = ValueHelper.getPrimitiveValue(javaType, value);
+                } else if (value.getClass().equals(JDIObjectValue.class) && (ValueHelper.isJavaUtilClass(javaType) && Collection.class.isAssignableFrom(Class.forName(value.getReferenceTypeName().substring(0, value.getReferenceTypeName().indexOf("<")))))) {
+                    handleList(variableName, fieldName, javaType, value);
+                    print(value(""));
 
-		primitiveValue = "(" + javaType + ")" + primitiveValue;
+                } else if (value.getClass().equals(JDIObjectValue.class) && (ValueHelper.isJavaUtilClass(javaType) && Map.class.isAssignableFrom(Class.forName(value.getReferenceTypeName().substring(0, value.getReferenceTypeName().indexOf("<")))))) {
+                    handleMap(variableName, fieldName, javaType, value);
+                    print(value(""));
 
-		OutputUtils.outputValue(variableName, fieldName, javaType, primitiveValue);
-	}
+                } else {
+                    handleObject(variableName, fieldName, javaType, value);
+                    print(value(""));
+                }
+            }
+        } else {
+            throw new DebugException(Status.CANCEL_STATUS);
+        }
+    }
 
-	private void handleWrapper(String variableName, String fieldName, String javaType, IValue value) throws DebugException {
-		String wrapperValue = ValueHelper.getWrapperValue(value);
+    private void handleNullValue(String variableName, String fieldName, String javaType) {
+        OutputUtils.outputValue(variableName, fieldName, javaType, "null");
+    }
 
-		OutputUtils.outputConstructor(variableName, fieldName, javaType, value.getReferenceTypeName(), wrapperValue);
-	}
+    private void handlePrimitive(String variableName, String fieldName, String javaType, IValue value) throws DebugException {
+        String primitiveValue = ValueHelper.getPrimitiveValue(javaType, value);
 
-	private void handleNumber(String variableName, String fieldName, String javaType, IValue value) throws DebugException {
-		StringReferenceImpl stringValue = (StringReferenceImpl) JDIReflectionUtils.invokeMethod(value, "toString", null);
-		String numberValue = "\"" + stringValue.value() + "\"";
+        primitiveValue = "(" + javaType + ")" + primitiveValue;
 
-		OutputUtils.outputConstructor(variableName, fieldName, javaType, value.getReferenceTypeName(), numberValue);
-	}
+        OutputUtils.outputValue(variableName, fieldName, javaType, primitiveValue);
+    }
 
-	private void handleDate(String variableName, String fieldName, String javaType, IValue value) throws DebugException {
+    private void handleWrapper(String variableName, String fieldName, String javaType, IValue value) throws DebugException {
+        String wrapperValue = ValueHelper.getWrapperValue(value);
 
-		LongValueImpl timeMillis = (LongValueImpl) JDIReflectionUtils.invokeMethod(value, "getTime", null);
-		String dateValue = timeMillis.value() + "L";
+        OutputUtils.outputConstructor(variableName, fieldName, javaType, value.getReferenceTypeName(), wrapperValue);
+    }
 
-		OutputUtils.outputConstructor(variableName, fieldName, javaType, value.getReferenceTypeName(), dateValue);
-	}
+    private void handleNumber(String variableName, String fieldName, String javaType, IValue value) throws DebugException {
+        StringReferenceImpl stringValue = (StringReferenceImpl) JDIReflectionUtils.invokeMethod(value, "toString", null);
+        String numberValue = "\"" + stringValue.value() + "\"";
 
-	private void handleEnum(String variableName, String fieldName, String javaType, IValue value) throws DebugException {
-		String enumValue = null;
+        OutputUtils.outputConstructor(variableName, fieldName, javaType, value.getReferenceTypeName(), numberValue);
+    }
 
-		for (IVariable variable : value.getVariables()) {
-			if (variable.toString().equals("name")) {
-				enumValue = variable.getValue().getValueString();
-				break;
-			}
-		}
+    private void handleDate(String variableName, String fieldName, String javaType, IValue value) throws DebugException {
 
-		OutputUtils.outputValue(variableName, fieldName, javaType, javaType + "." + enumValue);
-	}
+        LongValueImpl timeMillis = (LongValueImpl) JDIReflectionUtils.invokeMethod(value, "getTime", null);
+        String dateValue = timeMillis.value() + "L";
 
-	private void handleArray(String variableName, String fieldName, String javaType, IValue value) throws DebugException, ClassNotFoundException {
-		IVariable[] variables = value.getVariables();
+        OutputUtils.outputConstructor(variableName, fieldName, javaType, value.getReferenceTypeName(), dateValue);
+    }
 
-		String arrayType = javaType.replaceFirst("\\[\\]", "");
+    private void handleEnum(String variableName, String fieldName, String javaType, IValue value) throws DebugException {
+        String enumValue = null;
 
-		String localVariableName = OutputUtils.outputArrayConstructor(variableName, fieldName, javaType, variables.length);
+        for (IVariable variable : value.getVariables()) {
+            if (variable.toString().equals("name")) {
+                enumValue = variable.getValue().getValueString();
+                break;
+            }
+        }
 
-		for (int i=0; i<variables.length; i++) {
-			handleTypes("", localVariableName + i, arrayType, variables[i].getValue());
-			print(value(localVariableName + i).assignedTo(arrayIndex(variableName, fieldName, i)));
-		}
-	}
+        OutputUtils.outputValue(variableName, fieldName, javaType, javaType + "." + enumValue);
+    }
 
-	private void handleList(String variableName, String fieldName, String javaType, IValue value) throws DebugException, ClassNotFoundException {
-		ArrayReferenceImpl arrayList = (ArrayReferenceImpl) JDIReflectionUtils.invokeMethod(value, "toArray", (Object[]) null);
+    private void handleArray(String variableName, String fieldName, String javaType, IValue value) throws DebugException, ClassNotFoundException {
+        IVariable[] variables = value.getVariables();
 
-		String referenceType = collectionTypes.get(javaType.substring(0, javaType.indexOf("<")));
-		referenceType = referenceType != null ? referenceType : javaType;
-		String genericType = javaType.substring(javaType.indexOf("<")).replace("<", "").replace(">", "");
-		
-		String localVariableName = OutputUtils.outputGenericConstructor(variableName, fieldName, genericType, javaType, referenceType);
-		
-		if (arrayList.length() > 0) {
-			for (int i = 0; i < arrayList.getValues().size(); i++) {
-				ObjectReferenceImpl item = (ObjectReferenceImpl) arrayList.getValues().get(i);
-				
-				IValue itemValue = JDIValue.createValue((JDIDebugTarget) value.getDebugTarget(), item);
+        String arrayType = javaType.replaceFirst("\\[\\]", "");
 
-				String referenceTypeName = itemValue.getReferenceTypeName();
+        String localVariableName = OutputUtils.outputArrayConstructor(variableName, fieldName, javaType, variables.length);
 
-				String varName = fieldName + "item" + i;
-				handleTypes("", varName, referenceTypeName, itemValue);
-				print(value(varName).addTo(localVariableName));
-			}
-		}
-	}
+        for (int i=0; i<variables.length; i++) {
+            handleTypes("", localVariableName + i, arrayType, variables[i].getValue());
+            print(value(localVariableName + i).assignedTo(arrayIndex(variableName, fieldName, i)));
+        }
+    }
 
-	private void handleMap(String variableName, String fieldName, String javaType, IValue value) throws DebugException, ClassNotFoundException {
+    private void handleList(String variableName, String fieldName, String javaType, IValue value) throws DebugException, ClassNotFoundException {
+        ArrayReferenceImpl arrayList = (ArrayReferenceImpl) JDIReflectionUtils.invokeMethod(value, "toArray", (Object[]) null);
 
-		String referenceType = value.getReferenceTypeName().replaceFirst("<K,V>", "");
+        String referenceType = collectionTypes.get(javaType.substring(0, javaType.indexOf("<")));
+        referenceType = referenceType != null ? referenceType : javaType;
+        String genericType = javaType.substring(javaType.indexOf("<")).replace("<", "").replace(">", "");
 
-		String comparator = "";
-		if (referenceType.equals("java.util.TreeMap")) {
-			ObjectReferenceImpl mapComparator = (ObjectReferenceImpl) JDIReflectionUtils.invokeMethod(value, "comparator", null);
-			if (mapComparator != null) {
-				comparator = defaultConstructor(mapComparator.type().toString()).toString();
+        String localVariableName = OutputUtils.outputGenericConstructor(variableName, fieldName, genericType, javaType, referenceType);
 
-				// should we do something about inner classes other than static ones?
-				comparator = comparator.replace("$", ".");
-			}
-		}
-		
-		String genericType = javaType.substring(javaType.indexOf("<")).replace("<", "").replace(">", "");
-		String genericKey = genericType.split(",")[0];
-		String genericValue = genericType.split(",")[1];
-		
-		String localVariableName = OutputUtils.outputMapConstructor(variableName, fieldName, javaType, referenceType, genericKey, genericValue, comparator);
+        if (arrayList.length() > 0) {
+            for (int i = 0; i < arrayList.getValues().size(); i++) {
+                ObjectReferenceImpl item = (ObjectReferenceImpl) arrayList.getValues().get(i);
 
-		JDIThread thread = JDIReflectionUtils.getUnderlyingThread(value); 
+                IValue itemValue = JDIValue.createValue((JDIDebugTarget) value.getDebugTarget(), item);
 
-		ObjectReferenceImpl entrySet = (ObjectReferenceImpl) JDIReflectionUtils.invokeMethod(value, "entrySet", null);
-		ArrayReferenceImpl entryArray = (ArrayReferenceImpl) JDIReflectionUtils.invokeMethod(thread, entrySet, "toArray", (Object[]) null);
-		
-		if (entryArray.length() > 0) {
-			for (int i=0; i<entryArray.getValues().size(); i++) {
-				ObjectReferenceImpl entry = (ObjectReferenceImpl) entryArray.getValues().get(i);
-	
-				ObjectReferenceImpl refKey = (ObjectReferenceImpl) JDIReflectionUtils.invokeMethod(thread, entry, "getKey", (Object[]) null);
-				IValue entryKey = JDIValue.createValue((JDIDebugTarget)value.getDebugTarget(), refKey);
-				String keyVariableName = localVariableName + "key" + i ;
-				handleTypes("", keyVariableName, genericKey, entryKey);
-				
-				ObjectReferenceImpl refValue = (ObjectReferenceImpl) JDIReflectionUtils.invokeMethod(thread, entry, "getValue", (Object[]) null);
-				IValue entryValue = JDIValue.createValue((JDIDebugTarget)value.getDebugTarget(), refValue);
-				String valueVariableName = localVariableName + "value" + i ;
-				handleTypes("", valueVariableName, genericValue, entryValue);
-				
-				print(value(keyVariableName + ", " + valueVariableName).putTo(localVariableName));
-			}
-		}
-	}
+                String referenceTypeName = itemValue.getReferenceTypeName();
 
-	private void handleObject(String variableName, String fieldName, String javaType, IValue value) throws DebugException, ClassNotFoundException {
+                String varName = fieldName + "item" + i;
+                handleTypes("", varName, referenceTypeName, itemValue);
+                print(value(varName).addTo(localVariableName));
+            }
+        }
+    }
 
-		String localVariableName = OutputUtils.outputDefaultConstructor(variableName, fieldName, javaType);
+    private void handleMap(String variableName, String fieldName, String javaType, IValue value) throws DebugException, ClassNotFoundException {
 
-		JDIObjectValue objectValue = (JDIObjectValue) value;
+        String referenceType = value.getReferenceTypeName().replaceFirst("<K,V>", "");
 
-		IVariable[] variables = objectValue.getVariables();
+        String comparator = "";
+        if (referenceType.equals("java.util.TreeMap")) {
+            ObjectReferenceImpl mapComparator = (ObjectReferenceImpl) JDIReflectionUtils.invokeMethod(value, "comparator", null);
+            if (mapComparator != null) {
+                comparator = defaultConstructor(mapComparator.type().toString()).toString();
 
-		if (variables != null && objectValue.getValueString().length() > 0) {
-			if (!fieldName.equals("") && !variableName.equals("")) {
-				print(value(localVariableName).setTo(variableName, fieldName));
-			}
-		}
+                // should we do something about inner classes other than static ones?
+                comparator = comparator.replace("$", ".");
+            }
+        }
 
-		for (IVariable variable : variables) {
+        String genericType = javaType.substring(javaType.indexOf("<")).replace("<", "").replace(">", "");
+        String genericKey = genericType.split(",")[0];
+        String genericValue = genericType.split(",")[1];
 
-			if (variable instanceof JDIVariable) {
-				handleVariable(localVariableName, (JDIVariable) variable);
-			}
-		}
-	}
+        String localVariableName = OutputUtils.outputMapConstructor(variableName, fieldName, javaType, referenceType, genericKey, genericValue, comparator);
+
+        JDIThread thread = JDIReflectionUtils.getUnderlyingThread(value);
+
+        ObjectReferenceImpl entrySet = (ObjectReferenceImpl) JDIReflectionUtils.invokeMethod(value, "entrySet", null);
+        ArrayReferenceImpl entryArray = (ArrayReferenceImpl) JDIReflectionUtils.invokeMethod(thread, entrySet, "toArray", (Object[]) null);
+
+        if (entryArray.length() > 0) {
+            for (int i=0; i<entryArray.getValues().size(); i++) {
+                ObjectReferenceImpl entry = (ObjectReferenceImpl) entryArray.getValues().get(i);
+
+                ObjectReferenceImpl refKey = (ObjectReferenceImpl) JDIReflectionUtils.invokeMethod(thread, entry, "getKey", (Object[]) null);
+                IValue entryKey = JDIValue.createValue((JDIDebugTarget)value.getDebugTarget(), refKey);
+                String keyVariableName = localVariableName + "key" + i ;
+                handleTypes("", keyVariableName, genericKey, entryKey);
+
+                ObjectReferenceImpl refValue = (ObjectReferenceImpl) JDIReflectionUtils.invokeMethod(thread, entry, "getValue", (Object[]) null);
+                IValue entryValue = JDIValue.createValue((JDIDebugTarget)value.getDebugTarget(), refValue);
+                String valueVariableName = localVariableName + "value" + i ;
+                handleTypes("", valueVariableName, genericValue, entryValue);
+
+                print(value(keyVariableName + ", " + valueVariableName).putTo(localVariableName));
+            }
+        }
+    }
+
+    private void handleObject(String variableName, String fieldName, String javaType, IValue value) throws DebugException, ClassNotFoundException {
+
+        String localVariableName = OutputUtils.outputDefaultConstructor(variableName, fieldName, javaType);
+
+        JDIObjectValue objectValue = (JDIObjectValue) value;
+
+        IVariable[] variables = objectValue.getVariables();
+
+        if (variables != null && objectValue.getValueString().length() > 0) {
+            if (!fieldName.equals("") && !variableName.equals("")) {
+                print(value(localVariableName).setTo(variableName, fieldName));
+            }
+        }
+
+        for (IVariable variable : variables) {
+
+            if (variable instanceof JDIVariable) {
+                if (!((JDIVariable) variable).isFinal() || !((JDIVariable) variable).isStatic()) {
+
+                    try {
+                        Thread.sleep(5000);
+                    } catch (InterruptedException e) {
+                        // TODO Auto-generated catch block
+                        e.printStackTrace();
+                    }
+                    handleVariable(localVariableName, (JDIVariable) variable);
+                }
+            }
+        }
+    }
+
+    public IProgressMonitor getMonitor() {
+        return monitor;
+    }
+
+    public void setMonitor(IProgressMonitor pm) {
+        this.monitor = pm;
+    }
 }

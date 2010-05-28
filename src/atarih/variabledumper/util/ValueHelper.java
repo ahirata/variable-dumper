@@ -11,72 +11,72 @@ import org.eclipse.jdt.internal.debug.core.model.JDIVariable;
 
 public class ValueHelper {
 
-	private static final Set<String> PRIMITIVE_TYPES = new TreeSet<String>(Arrays.asList(new String[] {
-			"java.lang.Boolean", 
-			"java.lang.Byte", 
-			"java.lang.Character",
-			"java.lang.Short", 
-			"java.lang.Integer", 
-			"java.lang.Long", 
-			"java.lang.Float", 
-			"java.lang.Double"
-	}));
-	
-	public static String getPrimitiveValue(String javaType, IValue value) {
-		String primitiveValue = value.toString();
+    private static final Set<String> PRIMITIVE_TYPES = new TreeSet<String>(Arrays.asList(new String[] {
+            "java.lang.Boolean",
+            "java.lang.Byte",
+            "java.lang.Character",
+            "java.lang.Short",
+            "java.lang.Integer",
+            "java.lang.Long",
+            "java.lang.Float",
+            "java.lang.Double"
+    }));
 
-		if (javaType.equals("char")) {
-			primitiveValue = "'" + primitiveValue + "'";
-		} else  if (javaType.equals("long")) {
-			primitiveValue += "L";
+    public static String getPrimitiveValue(String javaType, IValue value) {
+        String primitiveValue = value.toString();
 
-		} else if (javaType.equals("float")) {
-			primitiveValue += "F";
+        if (javaType.equals("char")) {
+            primitiveValue = "'" + primitiveValue + "'";
+        } else  if (javaType.equals("long")) {
+            primitiveValue += "L";
 
-		} else if (javaType.equals("double")) {
-			primitiveValue += "D";
+        } else if (javaType.equals("float")) {
+            primitiveValue += "F";
 
-		}
-		return primitiveValue;
-	}
+        } else if (javaType.equals("double")) {
+            primitiveValue += "D";
 
-	public static boolean isWrapper(String type) {
-		return PRIMITIVE_TYPES.contains(type); 
-	}
+        }
+        return primitiveValue;
+    }
 
-	public static String getWrapperValue(IValue value) throws DebugException {
-		String wrapperValue = null;
+    public static boolean isWrapper(String type) {
+        return PRIMITIVE_TYPES.contains(type);
+    }
 
-		for (IVariable variable : value.getVariables()) {
-			if (variable instanceof JDIVariable && variable.getName().equals("value")) {
-				if (value.getReferenceTypeName().equals("java.lang.Character")) {
-					wrapperValue = "'" + variable.getValue() + "'";
+    public static String getWrapperValue(IValue value) throws DebugException {
+        String wrapperValue = null;
 
-				} else {
-					wrapperValue = "\"" + variable.getValue() + "\"";
-				}
+        for (IVariable variable : value.getVariables()) {
+            if (variable instanceof JDIVariable && variable.getName().equals("value")) {
+                if (value.getReferenceTypeName().equals("java.lang.Character")) {
+                    wrapperValue = "'" + variable.getValue() + "'";
 
-				break;	
-			}
-		}
+                } else {
+                    wrapperValue = "\"" + variable.getValue() + "\"";
+                }
 
-		return wrapperValue;
-	}
+                break;
+            }
+        }
 
-	public static boolean isEnum(IValue value) throws DebugException {
-		boolean isEnum = false;
+        return wrapperValue;
+    }
 
-		for (IVariable variable : value.getVariables()) {
-			if (variable.toString().equals("ENUM$VALUES")) {
-				isEnum = true;
-				break;
-			}
-		}
+    public static boolean isEnum(IValue value) throws DebugException {
+        boolean isEnum = false;
 
-		return isEnum;
-	}
-	
-	public static boolean isJavaUtilClass(String clazz) {
-		return clazz.startsWith("java.util");
-	}
+        for (IVariable variable : value.getVariables()) {
+            if (variable.toString().equals("ENUM$VALUES")) {
+                isEnum = true;
+                break;
+            }
+        }
+
+        return isEnum;
+    }
+
+    public static boolean isJavaUtilClass(String clazz) {
+        return clazz.startsWith("java.util");
+    }
 }
