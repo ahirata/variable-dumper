@@ -20,6 +20,7 @@ import atarih.variabledumper.handler.TypeHandler;
 
 public class VariableDumperAction implements IViewActionDelegate {
 
+    private static final int TIMEOUT = 500;
     private IWorkbenchWindow activeWindow = null;
 
     private static final class VariableDumpJob extends Job {
@@ -71,7 +72,7 @@ public class VariableDumperAction implements IViewActionDelegate {
             job.schedule();
 
             try {
-                Thread.sleep(500);
+                Thread.sleep(TIMEOUT);
             } catch (InterruptedException e) {
                 System.out.println("exception while sleeping");
                 e.printStackTrace();

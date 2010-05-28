@@ -266,12 +266,6 @@ public class TypeHandler {
             if (variable instanceof JDIVariable) {
                 if (!((JDIVariable) variable).isFinal() || !((JDIVariable) variable).isStatic()) {
 
-                    try {
-                        Thread.sleep(5000);
-                    } catch (InterruptedException e) {
-                        // TODO Auto-generated catch block
-                        e.printStackTrace();
-                    }
                     handleVariable(localVariableName, (JDIVariable) variable);
                 }
             }
