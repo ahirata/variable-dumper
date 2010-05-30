@@ -4,8 +4,6 @@ import static atarih.variabledumper.ui.console.VariableDumperConsoleOutput.print
 
 import java.util.Arrays;
 
-import org.eclipse.debug.core.DebugException;
-
 public class OutputUtils {
 
     public static Output defaultConstructor(String javaType) {
@@ -69,34 +67,47 @@ public class OutputUtils {
     }
 
     public static String outputDefaultConstructor(String variableName, String fieldName, String javaType) {
-        String localVariableName = null;
-
-        if (variableName.equals("")) {
-            localVariableName = fieldName;
-            print(defaultConstructor(javaType).assignedTo(javaType, localVariableName));
-
-        } else if (fieldName.equals("")) {
-            localVariableName = variableName;
-            print(defaultConstructor(javaType).assignedTo(localVariableName));
-
-        } else {
-            localVariableName = variableName+Output.capitalize(fieldName);
-            print(defaultConstructor(javaType).assignedTo(javaType, localVariableName));
-        }
+        String localVariableName = outputConstructor(variableName, fieldName, javaType, javaType, "");
 
         return localVariableName;
     }
 
-    public static void outputConstructor(String variableName, String fieldName, String receivingType, String referenceType, String value) throws DebugException {
+    public static String outputConstructor(String variableName, String fieldName, String receivingType, String referenceType, String value) {
+        String localVariableName = null;
         if (variableName.equals("")) {
+            localVariableName = fieldName;
             print(constructor(referenceType, value).assignedTo(receivingType, fieldName));
 
         } else if (fieldName.equals("")){
+            localVariableName = variableName;
             print(constructor(referenceType, value).assignedTo(variableName));
 
         } else {
+            localVariableName = variableName+Output.capitalize(fieldName);
             print(constructor(referenceType, value).setTo(variableName, fieldName));
         }
+        return localVariableName;
+    }
+
+    public static String outputInnerConstructor(String variableName, String fieldName, String receivingType, String referenceType, String parent) {
+        String localVariableName = null;
+        Output constructor = defaultConstructor(referenceType.substring(referenceType.indexOf("$")+1));
+        constructor.setValue(parent + "." + constructor.toString());
+
+        if (variableName.equals("")) {
+            localVariableName = fieldName;
+            print(constructor.assignedTo(receivingType, localVariableName));
+
+        } else if (fieldName.equals("")) {
+            localVariableName = variableName;
+            print(constructor.assignedTo(localVariableName));
+
+        } else {
+            localVariableName = variableName+Output.capitalize(fieldName);
+            print(constructor.assignedTo(receivingType, localVariableName));
+        }
+
+        return localVariableName;
     }
 
     public static String outputArrayConstructor(String variableName, String fieldName, String javaType, int arrayLength) {

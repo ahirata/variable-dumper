@@ -45,11 +45,12 @@ public class TypeHandler {
     private TreeMap<String, String> mapVariables = new TreeMap<String, String>();
 
     public void handleVariable(String variableName, JDIVariable variable) throws DebugException, ClassNotFoundException {
+
         IValue value = variable.getValue();
         String javaType = value.getReferenceTypeName();
 
         if (!javaType.equals("null") || javaType.contains("$")) {
-            javaType = variable.getReferenceTypeName();
+            javaType = variable.getReferenceTypeName().replaceAll("\\$", ".");
         }
 
         String fieldName = variable.getName();
@@ -75,7 +76,7 @@ public class TypeHandler {
                         mapVariables.put(value.toString(), variableName);
 
                     } else {
-                        mapVariables.put(value.toString(), variableName+Output.capitalize(fieldName));
+                        mapVariables.put(value.toString(), variableName+Output.capitalize(fieldName.replaceAll("\\$", "")));
                     }
                 }
 
@@ -249,7 +250,16 @@ public class TypeHandler {
 
     private void handleObject(String variableName, String fieldName, String javaType, IValue value) throws DebugException, ClassNotFoundException {
 
-        String localVariableName = OutputUtils.outputDefaultConstructor(variableName, fieldName, javaType);
+        String localVariableName = null;
+        IVariable outerObjectReference = isInnerClass(value);
+
+        if (outerObjectReference != null) {
+            String existingVariable = handleInnerClass(variableName, fieldName, javaType, outerObjectReference);
+
+            localVariableName = OutputUtils.outputInnerConstructor(variableName, fieldName, javaType, value.getReferenceTypeName(), existingVariable);
+        } else {
+            localVariableName = OutputUtils.outputDefaultConstructor(variableName, fieldName, javaType);
+        }
 
         JDIObjectValue objectValue = (JDIObjectValue) value;
 
@@ -262,14 +272,43 @@ public class TypeHandler {
         }
 
         for (IVariable variable : variables) {
-
             if (variable instanceof JDIVariable) {
-                if (!((JDIVariable) variable).isFinal() || !((JDIVariable) variable).isStatic()) {
-
-                    handleVariable(localVariableName, (JDIVariable) variable);
+                if (!((JDIVariable)variable).isSynthetic()) {
+                    if ((!((JDIVariable) variable).isFinal() || !((JDIVariable) variable).isStatic())) {
+                        handleVariable(localVariableName, (JDIVariable) variable);
+                    }
                 }
             }
         }
+    }
+
+    private String handleInnerClass(String variableName, String fieldName, String javaType, IVariable outerObjectReference) throws DebugException, ClassNotFoundException {
+        IValue value = outerObjectReference.getValue();
+
+        String existingVariable = mapVariables.get(value.toString());
+
+        if (existingVariable == null) {
+
+            String outerObjectName = (variableName.equals("") ? fieldName : variableName+Output.capitalize(fieldName)).concat(outerObjectReference.getName()).replaceAll("\\$", "");
+
+            handleTypes("", outerObjectName, ((JDIVariable) outerObjectReference).getReferenceTypeName(), value);
+            existingVariable = mapVariables.get(value.toString());
+        } else {
+            existingVariable = "()";
+        }
+
+        return existingVariable;
+    }
+
+    private IVariable isInnerClass(IValue value) throws DebugException {
+        IVariable variableReference = null;
+        for (IVariable variable : value.getVariables()) {
+            if (variable.getName().contains("this$")) {
+                variableReference = variable;
+                break;
+            }
+        }
+        return variableReference;
     }
 
     public IProgressMonitor getMonitor() {
