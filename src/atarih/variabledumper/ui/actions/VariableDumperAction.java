@@ -11,7 +11,6 @@ import org.eclipse.jface.viewers.ISelection;
 import org.eclipse.jface.viewers.TreeSelection;
 import org.eclipse.ui.IViewActionDelegate;
 import org.eclipse.ui.IViewPart;
-import org.eclipse.ui.IWorkbenchWindow;
 import org.eclipse.ui.internal.ViewPluginAction;
 
 import atarih.variabledumper.handler.TypeHandler;
@@ -19,7 +18,6 @@ import atarih.variabledumper.handler.TypeHandler;
 public class VariableDumperAction implements IViewActionDelegate {
 
     private static final int TIMEOUT = 500;
-    private IWorkbenchWindow activeWindow = null;
 
     private static final class VariableDumpJob extends Job {
         private final JDIVariable variable;
@@ -47,9 +45,7 @@ public class VariableDumperAction implements IViewActionDelegate {
     }
 
     @Override
-    public void init(IViewPart view) {
-        activeWindow = view.getSite().getWorkbenchWindow();
-    }
+    public void init(IViewPart view) { }
 
     @Override
     @SuppressWarnings("restriction")
