@@ -5,11 +5,11 @@ import static atarih.variabledumper.util.OutputUtils.arrayIndex;
 import static atarih.variabledumper.util.OutputUtils.defaultConstructor;
 import static atarih.variabledumper.util.OutputUtils.value;
 
-import java.util.Collection;
 import java.util.Map;
 import java.util.TreeMap;
 
 import org.eclipse.core.runtime.IProgressMonitor;
+import org.eclipse.core.runtime.IStatus;
 import org.eclipse.core.runtime.Status;
 import org.eclipse.debug.core.DebugException;
 import org.eclipse.debug.core.model.IValue;
@@ -44,7 +44,7 @@ public class TypeHandler {
 
     private TreeMap<String, String> mapVariables = new TreeMap<String, String>();
 
-    public void handleVariable(String variableName, JDIVariable variable) throws DebugException, ClassNotFoundException {
+    public void handleVariable(String variableName, JDIVariable variable) throws DebugException {
 
         IValue value = variable.getValue();
         String javaType = value.getReferenceTypeName();
@@ -58,7 +58,7 @@ public class TypeHandler {
         handleTypes(variableName, fieldName, javaType, value);
     }
 
-    private void handleTypes(String variableName, String fieldName, String javaType, IValue value) throws DebugException, ClassNotFoundException {
+    private void handleTypes(String variableName, String fieldName, String javaType, IValue value) throws DebugException {
 
         if (!monitor.isCanceled()) {
 
@@ -102,11 +102,11 @@ public class TypeHandler {
                     handleArray(variableName, fieldName, javaType, value);
                     print(value(""));
 
-                } else if (value.getClass().equals(JDIObjectValue.class) && (ValueHelper.isJavaUtilClass(javaType) && Collection.class.isAssignableFrom(Class.forName(value.getReferenceTypeName().substring(0, value.getReferenceTypeName().indexOf("<")))))) {
-                    handleList(variableName, fieldName, javaType, value);
+                } else if (ValueHelper.isCollection(javaType, value)) {
+                    handleCollection(variableName, fieldName, javaType, value);
                     print(value(""));
 
-                } else if (value.getClass().equals(JDIObjectValue.class) && (ValueHelper.isJavaUtilClass(javaType) && Map.class.isAssignableFrom(Class.forName(value.getReferenceTypeName().substring(0, value.getReferenceTypeName().indexOf("<")))))) {
+                } else if (ValueHelper.isMap(javaType, value)) {
                     handleMap(variableName, fieldName, javaType, value);
                     print(value(""));
 
@@ -116,7 +116,7 @@ public class TypeHandler {
                 }
             }
         } else {
-            throw new DebugException(Status.CANCEL_STATUS);
+            throw new DebugException(new Status(IStatus.ERROR, "variable-dumper", "infinite loop while dumping variable..."));
         }
     }
 
@@ -166,7 +166,7 @@ public class TypeHandler {
         OutputUtils.outputValue(variableName, fieldName, javaType, javaType + "." + enumValue);
     }
 
-    private void handleArray(String variableName, String fieldName, String javaType, IValue value) throws DebugException, ClassNotFoundException {
+    private void handleArray(String variableName, String fieldName, String javaType, IValue value) throws DebugException {
         IVariable[] variables = value.getVariables();
 
         String arrayType = javaType.replaceFirst("\\[\\]", "");
@@ -179,7 +179,7 @@ public class TypeHandler {
         }
     }
 
-    private void handleList(String variableName, String fieldName, String javaType, IValue value) throws DebugException, ClassNotFoundException {
+    private void handleCollection(String variableName, String fieldName, String javaType, IValue value) throws DebugException {
         ArrayReferenceImpl arrayList = (ArrayReferenceImpl) JDIReflectionUtils.invokeMethod(value, "toArray", (Object[]) null);
 
         String referenceType = collectionTypes.get(javaType.substring(0, javaType.indexOf("<")));
@@ -203,7 +203,7 @@ public class TypeHandler {
         }
     }
 
-    private void handleMap(String variableName, String fieldName, String javaType, IValue value) throws DebugException, ClassNotFoundException {
+    private void handleMap(String variableName, String fieldName, String javaType, IValue value) throws DebugException {
 
         String referenceType = value.getReferenceTypeName().replaceFirst("<K,V>", "");
 
@@ -248,10 +248,10 @@ public class TypeHandler {
         }
     }
 
-    private void handleObject(String variableName, String fieldName, String javaType, IValue value) throws DebugException, ClassNotFoundException {
+    private void handleObject(String variableName, String fieldName, String javaType, IValue value) throws DebugException {
 
         String localVariableName = null;
-        IVariable outerObjectReference = isInnerClass(value);
+        IVariable outerObjectReference = ValueHelper.isInnerClass(value);
 
         if (outerObjectReference != null) {
             String existingVariable = handleInnerClass(variableName, fieldName, javaType, outerObjectReference);
@@ -282,7 +282,7 @@ public class TypeHandler {
         }
     }
 
-    private String handleInnerClass(String variableName, String fieldName, String javaType, IVariable outerObjectReference) throws DebugException, ClassNotFoundException {
+    private String handleInnerClass(String variableName, String fieldName, String javaType, IVariable outerObjectReference) throws DebugException {
         IValue value = outerObjectReference.getValue();
 
         String existingVariable = mapVariables.get(value.toString());
@@ -298,17 +298,6 @@ public class TypeHandler {
         }
 
         return existingVariable;
-    }
-
-    private IVariable isInnerClass(IValue value) throws DebugException {
-        IVariable variableReference = null;
-        for (IVariable variable : value.getVariables()) {
-            if (variable.getName().contains("this$")) {
-                variableReference = variable;
-                break;
-            }
-        }
-        return variableReference;
     }
 
     public IProgressMonitor getMonitor() {

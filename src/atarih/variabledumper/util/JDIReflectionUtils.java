@@ -5,6 +5,8 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
+import org.eclipse.core.runtime.IStatus;
+import org.eclipse.core.runtime.Status;
 import org.eclipse.debug.core.DebugException;
 import org.eclipse.debug.core.model.IThread;
 import org.eclipse.debug.core.model.IValue;
@@ -24,7 +26,7 @@ import com.sun.jdi.ObjectReference;
 public class JDIReflectionUtils {
 
     @SuppressWarnings("unchecked")
-    public static Method getMethod(ClassTypeImpl clazz, String methodName, Object[] args) {
+    public static Method getMethod(ClassTypeImpl clazz, String methodName, Object[] args) throws DebugException {
         Method method = null;
 
         for (Method methodItem : (List<Method>) clazz.methodsByName(methodName)) {
@@ -42,17 +44,17 @@ public class JDIReflectionUtils {
                     }
                 }
             } catch (ClassNotLoadedException e) {
-                // TODO Auto-generated catch block
                 e.printStackTrace();
+                throw new DebugException(new Status(IStatus.ERROR, "variable-dumper", e.getMessage()));
             } catch (ClassNotFoundException e) {
-                // TODO Auto-generated catch block
                 e.printStackTrace();
+                throw new DebugException(new Status(IStatus.ERROR, "variable-dumper", e.getMessage()));
             }
         }
         return method;
     }
 
-    public static Object invokeMethod(IValue value, String methodName, Object[] values) {
+    public static Object invokeMethod(IValue value, String methodName, Object[] values) throws DebugException {
 
         JDIThread jdiThread = getUnderlyingThread(value);
         JDIObjectValue objectValue = null;
@@ -67,7 +69,7 @@ public class JDIReflectionUtils {
     }
 
     @SuppressWarnings("unchecked")
-    public static Object invokeMethod(JDIThread jdiThread, ObjectReference object, String methodName, Object[] values) {
+    public static Object invokeMethod(JDIThread jdiThread, ObjectReference object, String methodName, Object[] values) throws DebugException {
         Method method = getMethod((ClassTypeImpl) object.referenceType(), methodName, values);
 
         Class<?>[] reflectTypes = new Class[] {
@@ -89,29 +91,22 @@ public class JDIReflectionUtils {
         try {
             result = ReflectionUtils.invokeMethod(jdiThread, "invokeMethod", reflectTypes, reflectObjects);
         } catch (NoSuchMethodException e) {
-            // TODO Auto-generated catch block
             e.printStackTrace();
+            throw new DebugException(new Status(IStatus.ERROR, "variable-dumper", e.getMessage()));
         } catch (IllegalAccessException e) {
-            // TODO Auto-generated catch block
             e.printStackTrace();
+            throw new DebugException(new Status(IStatus.ERROR, "variable-dumper", e.getMessage()));
         } catch (InvocationTargetException e) {
-            // TODO Auto-generated catch block
             e.printStackTrace();
+            throw new DebugException(new Status(IStatus.ERROR, "variable-dumper", e.getMessage()));
         }
         return result;
     }
 
-    public static JDIThread getUnderlyingThread(IValue value) {
-        IThread iThread = null;
-
+    public static JDIThread getUnderlyingThread(IValue value) throws DebugException {
         IJavaThread thread = JDIModelPresentation.getEvaluationThread((IJavaDebugTarget)value.getDebugTarget());
 
-        try {
-            iThread = thread.getTopStackFrame().getThread();
-        } catch (DebugException e) {
-            // TODO Auto-generated catch block
-            e.printStackTrace();
-        }
+        IThread iThread = thread.getTopStackFrame().getThread();
 
         return (JDIThread) iThread;
     }

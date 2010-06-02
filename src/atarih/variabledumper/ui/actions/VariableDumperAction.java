@@ -7,10 +7,8 @@ import org.eclipse.core.runtime.jobs.Job;
 import org.eclipse.debug.core.DebugException;
 import org.eclipse.jdt.internal.debug.core.model.JDIVariable;
 import org.eclipse.jface.action.IAction;
-import org.eclipse.jface.dialogs.MessageDialog;
 import org.eclipse.jface.viewers.ISelection;
 import org.eclipse.jface.viewers.TreeSelection;
-import org.eclipse.swt.widgets.Shell;
 import org.eclipse.ui.IViewActionDelegate;
 import org.eclipse.ui.IViewPart;
 import org.eclipse.ui.IWorkbenchWindow;
@@ -42,10 +40,7 @@ public class VariableDumperAction implements IViewActionDelegate {
                 status = Status.OK_STATUS;
             } catch (DebugException e) {
                 e.printStackTrace();
-                status = Status.CANCEL_STATUS;
-            } catch (ClassNotFoundException e) {
-                e.printStackTrace();
-                status = Status.CANCEL_STATUS;
+                status = e.getStatus();
             }
             return status;
         }
@@ -77,16 +72,8 @@ public class VariableDumperAction implements IViewActionDelegate {
                 System.out.println("exception while sleeping");
                 e.printStackTrace();
             }
-
-            if (job.getState() != Job.NONE && (job.getResult() == null || job.getResult().equals(Status.OK_STATUS))) {
+            if (job.getState() != Job.NONE && job.getResult() == null) {
                 job.cancel();
-                Shell shell = activeWindow.getShell();
-                try {
-                    MessageDialog.openError(shell, "Error", "An error has occured while dumping the variable " + variable.getName());
-                } catch (DebugException e) {
-                    // TODO Auto-generated catch block
-                    e.printStackTrace();
-                }
             }
         }
     }

@@ -1,12 +1,17 @@
 package atarih.variabledumper.util;
 
 import java.util.Arrays;
+import java.util.Collection;
+import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
 
+import org.eclipse.core.runtime.IStatus;
+import org.eclipse.core.runtime.Status;
 import org.eclipse.debug.core.DebugException;
 import org.eclipse.debug.core.model.IValue;
 import org.eclipse.debug.core.model.IVariable;
+import org.eclipse.jdt.internal.debug.core.model.JDIObjectValue;
 import org.eclipse.jdt.internal.debug.core.model.JDIVariable;
 
 public class ValueHelper {
@@ -78,5 +83,42 @@ public class ValueHelper {
 
     public static boolean isJavaUtilClass(String clazz) {
         return clazz.startsWith("java.util");
+    }
+
+    public static boolean isMap(String javaType, IValue value) throws DebugException {
+        boolean isMap = false;
+
+        try {
+            isMap = value.getClass().equals(JDIObjectValue.class) && (ValueHelper.isJavaUtilClass(javaType) && Map.class.isAssignableFrom(Class.forName(value.getReferenceTypeName().substring(0, value.getReferenceTypeName().indexOf("<")))));
+        } catch (ClassNotFoundException e) {
+            e.printStackTrace();
+            throw new DebugException(new Status(IStatus.ERROR, "variable-dumper", e.getMessage()));
+        }
+
+        return isMap;
+    }
+
+    public static boolean isCollection(String javaType, IValue value) throws DebugException {
+        boolean isCollection = false;
+
+        try {
+            isCollection = value.getClass().equals(JDIObjectValue.class) && (ValueHelper.isJavaUtilClass(javaType) && Collection.class.isAssignableFrom(Class.forName(value.getReferenceTypeName().substring(0, value.getReferenceTypeName().indexOf("<")))));
+        } catch (ClassNotFoundException e) {
+            e.printStackTrace();
+            throw new DebugException(new Status(IStatus.ERROR, "variable-dumper", e.getMessage()));
+        }
+
+        return isCollection;
+    }
+
+    public static IVariable isInnerClass(IValue value) throws DebugException {
+        IVariable variableReference = null;
+        for (IVariable variable : value.getVariables()) {
+            if (variable.getName().contains("this$")) {
+                variableReference = variable;
+                break;
+            }
+        }
+        return variableReference;
     }
 }
