@@ -1,2 +1,75 @@
-first commit on github
+- What is Variable Dumper?
+Variable Dumper is an eclipse plugin that genarates the source code necessary 
+to create an object that is equal (or at least, very similar) to an existing
+object in a debug session.
 
+- How do I install it?
+Download the latest version from http://github.com/ahirata/variable-dumper/downloads
+and save it under $ECLIPSE_HOME/dropins.
+
+Restart your eclipse to apply the changes.
+
+- How do I use it?
+Once you are in a debug session, the plugin will show an item called "Dump it!" 
+in the context menu when you right-click a variable. If you click it, the 
+plugin will generate and display the code necessary to create one object of the 
+same type by reading all the properties recursively.
+
+Example:
+If you have a class like this: 
+
+atarih.variabledumper.test.bean;
+
+public class WrapperHolder {
+
+    private Boolean oneWrapperBoolean;
+    private Byte oneWrapperByte;
+    private Character oneWrapperChar;
+    private Short oneWrapperShort;
+    private Integer oneWrapperInteger;
+    private Long oneWrapperLong;
+    private Float oneWrapperFloat;
+    private Double oneWrapperDouble;
+    private String oneString;
+    // getters and setters...
+
+}
+
+and instantiate it with the following values:
+
+oneWrapperBoolean = true;
+oneWrapperByte = 'b';
+oneWrapperChar = 'c';
+oneWrapperShort = 1;
+oneWrapperInteger = 2;
+oneWrapperLong = 3L;
+oneWrapperFloat = 4.4F;
+oneWrapperDouble = 5.5D;
+oneString = "foobar";
+
+the plugin will generate something like this in a console view:
+
+atarih.variabledumper.test.bean.WrapperHolder wrapperHolder = new atarih.variabledumper.test.bean.WrapperHolder();
+wrapperHolder.setOneString((java.lang.String)"foobar");
+wrapperHolder.setOneWrapperBoolean(new java.lang.Boolean("true"));
+wrapperHolder.setOneWrapperByte(new java.lang.Byte("98"));
+wrapperHolder.setOneWrapperChar(new java.lang.Character('c'));
+wrapperHolder.setOneWrapperDouble(new java.lang.Double("5.5"));
+wrapperHolder.setOneWrapperFloat(new java.lang.Float("4.4"));
+wrapperHolder.setOneWrapperInteger(new java.lang.Integer("2"));
+wrapperHolder.setOneWrapperLong(new java.lang.Long("3"));
+wrapperHolder.setOneWrapperShort(new java.lang.Short("1"));
+
+- Known limitations:
+1. The plugin should be used mainly to dump domain objects, since it assumes that the class has a default
+constructor and getters/setters for all attributes. It will probably dump the variable even if the class
+does not meet the requirements, but the generated code will not work.
+2. The behavior is unknown if you try to dump a proxy class or things like HttpServletRequest. 
+3. Because of the stated in the items above and because some types may lead to infinite loop, the plugin
+will timeout the dumping if it does not finish the job within 500ms (default).
+
+- Extra configuration:
+You can change the timeout interval by passing a vm argument "variableDumperTimeout". If you would like
+to increase to 1s, you should pass to the jvm:
+-DvariableDumperTimeout=1000
+ 
